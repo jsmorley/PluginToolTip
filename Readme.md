@@ -140,9 +140,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `StringCase` | `None` | None, Upper, Lower, Proper. |
 | `StringEffect` | `None` | None, Shadow or Border, using Rainmeter's 1-unit text effect. |
 | `FontEffectColor` | `0,0,0,255` | Text shadow/border color; separate from the tooltip stroke. |
-| `Angle` | `0` | Text rotation in radians around the content's top-left origin; layout dimensions remain unrotated. |
 | `AntiAlias` | `1` | Antialiased text; set 0 for aliased text. |
-| `AccurateText` | `1` | DirectWrite metrics; 0 enables Rainmeter's GDI-compatible spacing/metrics. |
 | `ClipString` | `2` | 0: no wrap/ellipsis; 1: wrap/trim to W/H; 2: auto size up to optional maximums, wrapping/trimming as necessary. |
 | `ClipStringW`, `ClipStringH` | unset | Automatic maximum text width/height with ClipString=2; ignored when W/H respectively are set. |
 | `TrailingSpaces` | `0` | 1 preserves leading/trailing spaces in the text returned by Rainmeter. |

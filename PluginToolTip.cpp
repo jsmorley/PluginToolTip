@@ -225,7 +225,7 @@ struct Measure {
         options.Configure(*format, fonts.get(), text);
         titleFormat->SetProperties(options.face.c_str(), options.size, true, false, fonts.get());
         auto maxW = options.width > 0 ? options.width : options.clip == 2 && options.clipW > 0 ? options.clipW : 8192;
-        auto size = Gfx::Canvas::Measure(text, *format, maxW, options.accurate);
+        auto size = Gfx::Canvas::Measure(text, *format, maxW, true);
         float w = options.width > 0 ? options.width : std::min(size.width + 1, maxW);
         float h = options.height > 0 ? options.height : size.height + 1;
         if (options.clip == 2 && options.height == 0 && options.clipH > 0) h = std::min(h, options.clipH);
@@ -348,17 +348,14 @@ struct Measure {
         }
         auto rect = D2D1::RectF(x, y + headerH, bodyW - options.padding[2] - options.borderWidth,
             top + bodyH - options.padding[3] - options.borderWidth);
-        auto transform = D2D1::Matrix3x2F::Rotation(options.angle * 180 / 3.14159265f, D2D1::Point2F(rect.left, rect.top));
-        target->SetTransform(transform);
         if (options.effect == L"shadow" || options.effect == L"border") {
             const int offsets[][2] = {{1, 1}, {-1, 0}, {1, 0}, {0, -1}, {0, 1}};
             for (int i = options.effect == L"shadow" ? 0 : 1; i < (options.effect == L"shadow" ? 1 : 5); ++i) {
                 auto r = rect; r.left += offsets[i][0]; r.right += offsets[i][0]; r.top += offsets[i][1]; r.bottom += offsets[i][1];
-                Gfx::Canvas::Draw(target.Get(), text, *format, r, options.effectColor, false, options.accurate);
+                Gfx::Canvas::Draw(target.Get(), text, *format, r, options.effectColor, false, true);
             }
         }
-        Gfx::Canvas::Draw(target.Get(), text, *format, rect, options.font, true, options.accurate);
-        target->SetTransform(D2D1::Matrix3x2F::Identity());
+        Gfx::Canvas::Draw(target.Get(), text, *format, rect, options.font, true, true);
         auto hr = target->EndDraw(); target->SetTarget(nullptr);
         if (FAILED(hr)) return false;
         props.bitmapOptions = D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW;

@@ -17,12 +17,12 @@ struct Options {
     void* rm = nullptr;
     std::wstring text, title, face, style, align, effect, position, icon, stringCase;
     D2D1_COLOR_F background{}, background2{}, font{}, effectColor{}, border{};
-    float size = 10, width = 0, height = 0, clipW = 0, clipH = 0, angle = 0;
+    float size = 10, width = 0, height = 0, clipW = 0, clipH = 0;
     float padding[4] = {8, 6, 8, 6};
     float borderWidth = 1, radius = 6, gradientAngle = 0, offsetX = 0, offsetY = 20;
     int weight = 400, clip = 2, initialDelay = 500, reshowDelay = 100, autoPopDelay = 5000;
     bool balloon = false, close = false, always = true, follow = false, keepOnScreen = true;
-    bool antiAlias = true, accurate = true, noFade = false;
+    bool antiAlias = true, noFade = false;
     bool dismissClick = true, enabled = true, backgroundGradient = false, topmost = true;
     std::vector<Gfx::TextInlineOption> inlines;
     std::wstring Read(const wchar_t* key, const wchar_t* fallback = L"") const;
