@@ -118,7 +118,6 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
 | `StrokeSize` | `1` | Outer outline width, including the balloon tail; `0` disables the outline. |
 | `StrokeColor` | `110,110,110,255` | Color of the outer outline. |
-| `BorderWidth`, `BorderColor` | same | Aliases used if the corresponding Stroke option is omitted. |
 | `W`, `H` | automatic | Fixed text content width/height. Padding, title/icon row, stroke and tail are added outside the text content. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
 | `Title` | empty | Optional heading using the selected font face/size in bold. |
