@@ -1,25 +1,10 @@
 # ToolTip
 
 `ToolTip.dll` is a C++ Rainmeter plugin for tooltips opened and closed with bangs from a meter or
-the `[Rainmeter]` section. The Visual Studio project is named **PluginToolTip**, based on
-PluginLogitechBattery's project layout. The DLL and `Plugin=` name are **ToolTip**.
+the `[Rainmeter]` section.
 
 The default `Mode=Formatted` uses Rainmeter's bundled DirectWrite text formatter, including its
 inline formatting and PCRE pattern engine. `Mode=Native` uses an actual Windows tooltip control.
-
-## Build and install
-
-Open `PluginToolTip.vcxproj` or the SDK's `C++\SDK-CPP.sln`. Select **Release / x64** and build.
-The project supports Debug / Release and Win32 / x64 and uses the installed default MSVC toolset,
-the Windows SDK, and the matching SDK Rainmeter import library. C++20 is required.
-
-The built **64-bit Release** plugin is at `x64\Release\ToolTip.dll` in this project folder.
-Copy this DLL to your Rainmeter user Plugins directory, then refresh the skin. Use a DLL whose
-architecture matches Rainmeter. No additional graphics, regex, or C++ runtime DLL is shipped
-with the plugin; Windows provides the graphics APIs and PCRE is linked into ToolTip.dll.
-
-The complete working example is [`Examples/ToolTip.ini`](Examples/ToolTip.ini). Copy it into
-a new skin folder after installing the plugin, then load it in Rainmeter.
 
 ## Basic use
 
@@ -242,20 +227,3 @@ than an exact outer width, and the control owns the remaining layout. Use **Form
 for those appearance options; the formatted balloon is drawn by the plugin and is not a
 Windows-themed balloon. These modes make the full rich formatting and native behavior available
 without promising unsupported customizations of Windows controls.
-
-## Validation and source
-
-`tests\RunTests.ps1` builds an isolated mock Rainmeter API and exercises the Release/x64 DLL
-against real Windows popup/tooltip controls. It does not install the plugin or modify a loaded
-Rainmeter skin. Checks cover independent instances, dynamic updates, delays/cancellation,
-timeout, screen bounds, native mode, numeric/string bindings including %10, Unicode/PCRE,
-DPI scaling, fade-in, invalid pattern logging, and teardown. Render captures are written under
-`tests\x64\Release`. The deliberately invalid regex test produces one expected warning.
-
-The text formatter/font helpers and PCRE sources are bundled under `vendor`; builds do not
-depend on `C:\Rainmeter4`. Attribution and dependency license details are in `vendor\README.md`,
-the GPL v2 `LICENSE`, and `vendor\pcre\LICENCE`.
-
-References: [Rainmeter String meter](https://docs-v5.rainmeter.net/manual/meters/string/),
-[inline formatting](https://docs.rainmeter.net/manual/meters/string/inline/), and
-[Windows tooltip styles](https://learn.microsoft.com/en-us/windows/win32/controls/tooltip-styles).
