@@ -159,7 +159,7 @@ Use a file path (relative to the skin, or absolute):
 
 ```ini
 Icon=#@#Icons\status.svg
-IconW=36
+IconW=24
 IconH=24
 ```
 
@@ -167,8 +167,8 @@ Or put the complete SVG document on one INI line:
 
 ```ini
 Icon=<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgb(80,210,160)"/><path d="M7 12l3 3 7-7" fill="none" stroke="white" stroke-width="2"/></svg>
-IconW=32
-IconH=32
+IconW=24
+IconH=24
 ```
 
 Include a `viewBox` so the artwork scales to `IconW` and `IconH`; SVG's
