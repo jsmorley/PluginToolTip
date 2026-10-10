@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="PluginToolTip.cpp" />
+    <ClCompile Include="ToolTipOptions.cpp" />
+    <ClCompile Include="ToolTipRenderer.cpp" />
+    <ClCompile Include="vendor\Gfx\TextFormat.cpp" />
+    <ClCompile Include="vendor\Gfx\FontCollection.cpp" />
+    <ClCompile Include="vendor\Gfx\Util\DWriteHelpers.cpp" />
+    <ClCompile Include="vendor\Gfx\Util\D2DUtil.cpp" />
+    <ClCompile Include="vendor\Gfx\Util\DWriteFontCollectionLoader.cpp" />
+    <ClCompile Include="vendor\Gfx\Util\DWriteFontFileEnumerator.cpp" />
+    <ClCompile Include="vendor\pcre\pcre16_byte_order.c" />
+    <ClCompile Include="vendor\pcre\pcre16_chartables.c" />
+    <ClCompile Include="vendor\pcre\pcre16_compile.c" />
+    <ClCompile Include="vendor\pcre\pcre16_config.c" />
+    <ClCompile Include="vendor\pcre\pcre16_dfa_exec.c" />
+    <ClCompile Include="vendor\pcre\pcre16_exec.c" />
+    <ClCompile Include="vendor\pcre\pcre16_fullinfo.c" />
+    <ClCompile Include="vendor\pcre\pcre16_get.c" />
+    <ClCompile Include="vendor\pcre\pcre16_globals.c" />
+    <ClCompile Include="vendor\pcre\pcre16_maketables.c" />
+    <ClCompile Include="vendor\pcre\pcre16_newline.c" />
+    <ClCompile Include="vendor\pcre\pcre16_ord2utf16.c" />
+    <ClCompile Include="vendor\pcre\pcre16_refcount.c" />
+    <ClCompile Include="vendor\pcre\pcre16_string_utils.c" />
+    <ClCompile Include="vendor\pcre\pcre16_study.c" />
+    <ClCompile Include="vendor\pcre\pcre16_tables.c" />
+    <ClCompile Include="vendor\pcre\pcre16_ucd.c" />
+    <ClCompile Include="vendor\pcre\pcre16_utf16_utils.c" />
+    <ClCompile Include="vendor\pcre\pcre16_valid_utf16.c" />
+    <ClCompile Include="vendor\pcre\pcre16_version.c" />
+    <ClCompile Include="vendor\pcre\pcre16_xclass.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ToolTipOptions.h" />
+    <ClInclude Include="vendor\StdAfx.h" />
+    <ClInclude Include="vendor\StringUtil.h" />
+    <ClInclude Include="vendor\Gfx\Canvas.h" />
+    <ClInclude Include="vendor\Gfx\FontCollection.h" />
+    <ClInclude Include="vendor\Gfx\TextFormat.h" />
+    <ClInclude Include="vendor\Gfx\TextInlineOption.h" />
+    <ClInclude Include="vendor\Gfx\Util\D2DUtil.h" />
+    <ClInclude Include="vendor\Gfx\Util\DWriteFontCollectionLoader.h" />
+    <ClInclude Include="vendor\Gfx\Util\DWriteFontFileEnumerator.h" />
+    <ClInclude Include="vendor\Gfx\Util\DWriteHelpers.h" />
+    <ClInclude Include="vendor\pcre\config.h" />
+    <ClInclude Include="vendor\pcre\pcre_internal.h" />
+    <ClInclude Include="vendor\pcre\pcre.h" />
+    <ClInclude Include="vendor\pcre\ucp.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="PluginToolTip.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Readme.md" />
+    <None Include="LICENSE" />
+    <None Include="Examples\ToolTip.ini" />
+    <None Include="vendor\README.md" />
+    <None Include="vendor\pcre\LICENCE" />
+    <None Include="tests\RunTests.ps1" />
+  </ItemGroup>
+</Project>
