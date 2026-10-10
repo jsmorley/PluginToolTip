@@ -3,8 +3,8 @@
 `ToolTip.dll` is a C++ Rainmeter plugin for tooltips opened and closed with bangs from a meter or
 the `[Rainmeter]` section.
 
-The default `Mode=Formatted` uses Rainmeter's bundled DirectWrite text formatter, including its
-inline formatting and PCRE pattern engine. `Mode=Native` uses an actual Windows tooltip control.
+The plugin draws customizable rectangle and balloon tooltips using Rainmeter's bundled
+DirectWrite text formatter, including its inline formatting and PCRE pattern engine.
 
 ## Basic use
 
@@ -67,7 +67,7 @@ case-insensitive. Invalid commands/coordinates and invalid inline options are lo
 
 Use any number of differently named `Measure=Plugin` / `Plugin=ToolTip` measures in one skin.
 Every instance owns its window, resolved text, layout, icon, timers, pending display, and visibility.
-Formatted instances share one Direct3D/Direct2D device to avoid multiplying driver
+Instances share one Direct3D/Direct2D device to avoid multiplying driver
 memory as different tooltips are shown. Hiding an instance releases its rendering
 context, bitmap buffers, fonts/layouts and icon; those resources are recreated on
 the next Show. Bitmap buffers are reused while an open tooltip's size and scale
@@ -109,7 +109,7 @@ Update. With `UpdateDivider=-1` or a paused skin there are no periodic content u
 plugin's `Update` command when needed. Display delays, fade, timeout and dismissal use window
 timers and do not require frequent skin updates. Redraws do not restart the timeout.
 
-## Appearance: formatted mode
+## Appearance
 
 Color options accept `R,G,B`, `R,G,B,A`, six-digit `RRGGBB`, or eight-digit `RRGGBBAA` hex values.
 Lengths below are skin units; the plugin uses the skin's effective DPI/zoom scale when supported
@@ -117,8 +117,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `Mode` | `Formatted` | `Formatted` for rich text, or `Native` for Windows rendering. |
-| `SolidColor` | `255,255,225,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported in formatted mode. |
+| `SolidColor` | `255,255,225,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
 | `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
 | `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
 | `StrokeSize` | `1` | Outer outline width, including the balloon tail; `0` disables the outline. |
@@ -127,7 +126,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
 | `Title` | empty | Optional heading using the selected font face/size in bold. |
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
-| `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). Formatted mode reserves this space in the header. SVGs are rasterized at these dimensions multiplied by the skin scale; native Windows controls own their final icon layout. |
+| `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). The header reserves this space. SVGs are rasterized at these dimensions multiplied by the skin scale. |
 | `Balloon` | `0` | `1` adds rounded balloon corners and a tail. `0` draws a square rectangle. |
 | `CornerRadius` | `6` | Balloon corner radius. |
 | `CloseButton` | `0` | `1` adds a clickable close button to the formatted heading row. |
@@ -179,7 +178,7 @@ IconH=24
 Include a `viewBox` so the artwork scales to `IconW` and `IconH`; SVG's
 `preserveAspectRatio` controls fitting within a rectangular viewport. The icon
 appears in the header with or without `Title`. Transparency is preserved.
-These dimension options also resize standard and ICO icons in formatted mode.
+These dimension options also resize standard and ICO icons.
 
 Rainmeter variables and measure references in `Icon`, `IconW` and `IconH` are
 resolved on each skin update while the tooltip is open. For dynamic inline
@@ -190,8 +189,7 @@ dimensions or skin scale reloads the icon; editing an SVG file in place takes
 effect on the next Show or skin refresh.
 
 SVG rendering uses Windows Direct2D and requires Windows 10 Creators Update
-(1703) or later. Both formatted and native modes accept SVG icons; native mode
-converts the SVG to an HICON for the Windows tooltip control. Direct2D supports
+(1703) or later. Direct2D supports
 a [subset of SVG](https://learn.microsoft.com/en-us/windows/win32/direct2d/svg-support),
 including paths, basic shapes, transforms and gradients. Use presentation
 attributes such as `fill` and `stroke`; scripts, animation, text, CSS stylesheets,
@@ -240,36 +238,13 @@ logged and skipped. Up to 256 bindings, inline settings, and local fonts are sup
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
 | `Topmost` | `1` | 1 keeps the tooltip above other windows without activating it. |
 | `DismissOnClick` | `1` | A new left/right mouse press dismisses requested/open tooltips. |
-| `NoFade` | `0` | 1 disables formatted fade-in and the native control's fade. |
-| `NoAnimate` | `0` | Native Windows TTS_NOANIMATE style; formatted mode does not slide. |
-| `NoPrefix` | `1` | Native TTS_NOPREFIX style to preserve ampersands/tabs. Formatted mode always preserves them. |
-| `ParseLinks` | `0` | Native mode only: parse tooltip hyperlinks with Windows TTF_PARSELINKS. |
-| `LinkAction` | empty | Native mode only: Rainmeter command executed when a tooltip hyperlink is clicked. |
+| `NoFade` | `0` | 1 disables fade-in. |
 
 With Position=Absolute, Show x y gives the popup's top-left screen position. With plain Show,
 OffsetX/OffsetY are the absolute top-left coordinates, scaled from skin units. Other positions
-treat Show x y as an anchor. Formatted balloons point their tail toward the anchor vertically.
+treat Show x y as an anchor. Balloons point their tail toward the anchor vertically.
 
 Escape dismisses requested/open tooltips. The plugin also hides tooltips when the owning skin
-is hidden/minimized. Popups do not activate or steal focus, and formatted content passes mouse
+is hidden/minimized. Popups do not activate or steal focus, and content passes mouse
 input through except for its close button. Cleanup destroys the instance's windows and timers
 when the measure is finalized/refreshed.
-
-## Native Windows mode and its limits
-
-`Mode=Native` provides Windows square/balloon rendering, native title/icons/close button,
-system theme, fade/animation style flags, parsed links and native tracked-tooltip positioning.
-Text and title are updated while open; the same plugin timing, commands, multi-instance state,
-monitor positioning and dismissal controls apply. A native close button requires Balloon=1
-and a nonempty Title. Native icon files and hyperlinks require the host's modern common controls.
-
-Leave SolidColor and FontColor unset to keep Windows theme colors. Explicit colors switch the
-native control to classic drawing so Windows honors them. Native colors are opaque RGB.
-
-Windows draws its own native frame and text. It cannot implement arbitrary inline formatting,
-gradient/alpha backgrounds, custom stroke size/color, arbitrary H, text rotation, text effects,
-or Rainmeter's exact ClipString layout. In native mode W/ClipStringW set a wrapping width rather
-than an exact outer width, and the control owns the remaining layout. Use **Formatted** mode
-for those appearance options; the formatted balloon is drawn by the plugin and is not a
-Windows-themed balloon. These modes make the full rich formatting and native behavior available
-without promising unsupported customizations of Windows controls.

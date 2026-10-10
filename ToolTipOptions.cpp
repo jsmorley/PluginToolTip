@@ -131,7 +131,7 @@ void Options::Load(void* context) {
     text = Read(L"Text"); title = Read(L"Title"); face = Read(L"FontFace", L"Arial");
     style = Lower(Read(L"StringStyle", L"Normal")); align = Lower(Read(L"StringAlign", L"Left"));
     effect = Lower(Read(L"StringEffect", L"None")); stringCase = Lower(Read(L"StringCase", L"None"));
-    position = Lower(Read(L"Position", L"Auto")); mode = Lower(Read(L"Mode", L"Formatted")); icon = Read(L"Icon", L"None");
+    position = Lower(Read(L"Position", L"Auto")); icon = Read(L"Icon", L"None");
     size = static_cast<float>(std::clamp(Number(L"FontSize", 10), 0.1, 1000.0));
     weight = static_cast<int>(std::clamp(Number(L"FontWeight", style.find(L"bold") != style.npos ? 700 : 400), 1.0, 999.0));
     auto dimension = [&](const wchar_t* key) { return static_cast<float>(std::clamp(Number(key, 0), 0.0, 8192.0)); };
@@ -156,8 +156,7 @@ void Options::Load(void* context) {
     balloon = flag(L"Balloon", false); close = flag(L"CloseButton", false); always = flag(L"AlwaysTip", true);
     follow = flag(L"FollowMouse", false); keepOnScreen = flag(L"KeepOnScreen", true); dismissClick = flag(L"DismissOnClick", true);
     antiAlias = flag(L"AntiAlias", true); accurate = flag(L"AccurateText", true); noFade = flag(L"NoFade", false);
-    noAnimate = flag(L"NoAnimate", false); noPrefix = flag(L"NoPrefix", true); enabled = flag(L"Enabled", true);
-    topmost = flag(L"Topmost", true); parseLinks = flag(L"ParseLinks", false);
+    enabled = flag(L"Enabled", true); topmost = flag(L"Topmost", true);
     inlines.clear();
     for (int i = 1; i <= 256; ++i) {
         auto suffix = i == 1 ? L"" : std::to_wstring(i);

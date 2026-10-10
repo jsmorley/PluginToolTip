@@ -1,7 +1,5 @@
 // ToolTip Rainmeter plugin. GPL v2; see LICENSE and vendor/README.md.
 #include "ToolTipOptions.h"
-#include <commctrl.h>
-#include <uxtheme.h>
 #include <d3d11.h>
 #include <dxgi.h>
 #include <wincodec.h>
@@ -31,8 +29,7 @@ LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 
 struct Measure {
     void* rm = nullptr;
-    HWND skin = nullptr, window = nullptr, native = nullptr;
-    HFONT nativeFont = nullptr;
+    HWND skin = nullptr, window = nullptr;
     HICON icon = nullptr;
     float iconW = 24, iconH = 24, iconScale = 1;
     bool iconOwned = false, requested = false, visible = false, fixedAnchor = false, tailTop = true;
@@ -66,7 +63,6 @@ struct Measure {
     }
     ~Measure() {
         Hide();
-        DestroyNative();
         if (window) DestroyWindow(window);
         if (--Instances == 0) {
             GraphicsPool.Reset();
@@ -75,11 +71,7 @@ struct Measure {
         }
         if (comOwned) CoUninitialize();
     }
-    void DestroyNative() {
-        if (native) DestroyWindow(native);
-        native = nullptr;
-        if (nativeFont) DeleteObject(nativeFont);
-        nativeFont = nullptr;
+    void DestroyIconResource() {
         if (iconOwned && icon) DestroyIcon(icon);
         icon = nullptr; iconOwned = false;
     }
@@ -94,12 +86,7 @@ struct Measure {
         if (requested || visible) hiddenAt = GetTickCount64();
         requested = visible = false;
         if (window) { KillTimer(window, TimerId); ShowWindow(window, SW_HIDE); }
-        if (native) {
-            TOOLINFOW tool{TTTOOLINFOW_V2_SIZE}; tool.hwnd = window; tool.uId = 1;
-            SendMessage(native, TTM_TRACKACTIVATE, FALSE, reinterpret_cast<LPARAM>(&tool));
-            SendMessage(native, TTM_POP, 0, 0);
-        }
-        DestroyNative();
+        DestroyIconResource();
         format.reset(); titleFormat.reset(); fonts.reset();
         if (target) target->SetTarget(nullptr);
         bitmap.Reset(); staging.Reset(); target.Reset();
@@ -108,8 +95,8 @@ struct Measure {
         if (GraphicsPool.device) GraphicsPool.device->ClearResources();
     }
     HICON SvgIcon(const std::wstring& source) {
-        // Rasterize at the skin's scale once per icon change. Both drawing modes
-        // consume the same alpha HICON, including rectangular SVG viewports.
+        // Rasterize at the skin's scale once per icon change, preserving alpha
+        // and rectangular SVG viewports.
         std::string xml;
         if (!source.empty() && source.front() == L'<') {
             int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, source.data(),
@@ -192,13 +179,6 @@ struct Measure {
             iconOwned = icon != nullptr;
             if (!icon) RmLog(rm, LOG_WARNING, L"ToolTip: Icon file could not be loaded (use an .ico or .svg file, or inline SVG)");
         }
-    }
-    WPARAM NativeIcon() const {
-        const auto name = ToolTip::Lower(options.icon);
-        if (name == L"info" || name == L"information") return TTI_INFO;
-        if (name == L"warning") return TTI_WARNING;
-        if (name == L"error") return TTI_ERROR;
-        return reinterpret_cast<WPARAM>(icon);
     }
     bool Graphics() {
         if (target) return true;
@@ -408,64 +388,6 @@ struct Measure {
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
         return ok;
     }
-    bool Native() {
-        DestroyNative(); ReadIcon();
-        // Owned popups are not composited while their owner is hidden. Keep our notification
-        // host visible as a completely transparent 1px layered window in native mode.
-        HDC screen = GetDC(nullptr), memory = CreateCompatibleDC(screen);
-        BITMAPINFO hostInfo{}; hostInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        hostInfo.bmiHeader.biWidth = 1; hostInfo.bmiHeader.biHeight = -1;
-        hostInfo.bmiHeader.biPlanes = 1; hostInfo.bmiHeader.biBitCount = 32;
-        void* hostBits = nullptr;
-        HBITMAP hostDib = CreateDIBSection(screen, &hostInfo, DIB_RGB_COLORS, &hostBits, nullptr, 0);
-        if (hostDib && memory) {
-            *static_cast<DWORD*>(hostBits) = 0;
-            auto old = SelectObject(memory, hostDib); SIZE one{1, 1}; POINT zero{};
-            BLENDFUNCTION blend{AC_SRC_OVER, 0, 0, AC_SRC_ALPHA};
-            UpdateLayeredWindow(window, screen, &anchor, &one, memory, &zero, 0, &blend, ULW_ALPHA);
-            SelectObject(memory, old);
-        }
-        if (hostDib) DeleteObject(hostDib);
-        if (memory) DeleteDC(memory);
-        ReleaseDC(nullptr, screen);
-        ShowWindow(window, SW_SHOWNOACTIVATE);
-        INITCOMMONCONTROLSEX init{sizeof(init), ICC_WIN95_CLASSES}; InitCommonControlsEx(&init);
-        DWORD style = WS_POPUP | (options.always ? TTS_ALWAYSTIP : 0) | (options.balloon ? TTS_BALLOON : 0) |
-            (options.close ? TTS_CLOSE : 0) | (options.noFade ? TTS_NOFADE : 0) | (options.noAnimate ? TTS_NOANIMATE : 0) |
-            (options.noPrefix ? TTS_NOPREFIX : 0) | (options.parseLinks ? TTS_USEVISUALSTYLE : 0);
-        native = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, TOOLTIPS_CLASSW, nullptr, style,
-            CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, window, nullptr, Module, nullptr);
-        if (!native) return false;
-        TOOLINFOW tool{TTTOOLINFOW_V2_SIZE};
-        tool.hwnd = window; tool.uId = 1; tool.uFlags = TTF_TRACK | TTF_ABSOLUTE | (options.parseLinks ? TTF_PARSELINKS : 0);
-        tool.lpszText = text.data();
-        if (!SendMessage(native, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>(&tool))) return false;
-        nativeFont = CreateFontW(-static_cast<int>(std::round(options.size * 4 / 3 * scale)), 0, 0, 0, options.weight,
-            options.style.find(L"italic") != options.style.npos, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS, options.antiAlias ? ANTIALIASED_QUALITY : NONANTIALIASED_QUALITY, DEFAULT_PITCH, options.face.c_str());
-        SendMessage(native, WM_SETFONT, reinterpret_cast<WPARAM>(nativeFont), FALSE);
-        SendMessage(native, TTM_SETMAXTIPWIDTH, 0, static_cast<LPARAM>((options.width > 0 ? options.width : options.clipW > 0 ? options.clipW : 400) * scale));
-        // Native background/text colors require classic rendering; preserve the system theme by default.
-        if (!options.Read(L"SolidColor").empty() || !options.Read(L"FontColor").empty()) {
-            SetWindowTheme(native, L"", L"");
-            auto rgb = [](D2D1_COLOR_F c) { return RGB(static_cast<BYTE>(c.r * 255), static_cast<BYTE>(c.g * 255), static_cast<BYTE>(c.b * 255)); };
-            SendMessage(native, TTM_SETTIPBKCOLOR, rgb(options.background), 0);
-            SendMessage(native, TTM_SETTIPTEXTCOLOR, rgb(options.font), 0);
-        }
-        RECT margin{static_cast<LONG>(options.padding[0] * scale), static_cast<LONG>(options.padding[1] * scale),
-            static_cast<LONG>(options.padding[2] * scale), static_cast<LONG>(options.padding[3] * scale)};
-        SendMessage(native, TTM_SETMARGIN, 0, reinterpret_cast<LPARAM>(&margin));
-        if (!options.title.empty() || icon) SendMessage(native, TTM_SETTITLEW, NativeIcon(), reinterpret_cast<LPARAM>(options.title.c_str()));
-        // Theme changes reset the control's font. Apply our font after selecting the theme.
-        SendMessage(native, WM_SETFONT, reinterpret_cast<WPARAM>(nativeFont), FALSE);
-        POINT p = Placement({0, 0});
-        SendMessage(native, TTM_TRACKPOSITION, 0, MAKELPARAM(p.x, p.y));
-        SendMessage(native, TTM_TRACKACTIVATE, TRUE, reinterpret_cast<LPARAM>(&tool));
-        RECT bounds{}; GetWindowRect(native, &bounds);
-        p = Placement({bounds.right - bounds.left, bounds.bottom - bounds.top});
-        SetWindowPos(native, options.topmost ? HWND_TOPMOST : HWND_NOTOPMOST, p.x, p.y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
-        return true;
-    }
     void Show(bool fixed, POINT point) {
         Hide(); Load();
         if (!window || !options.enabled || !IsWindowVisible(skin)) return;
@@ -482,9 +404,8 @@ struct Measure {
     void Display() {
         text = options.ResolveText(); ReadIcon();
         if (text.empty() && options.title.empty()) { Hide(); return; }
-        bool ok;
-        if (options.mode == L"native") ok = Native();
-        else { LoadFonts(); ok = Paint(options.noFade ? 255 : 0); }
+        LoadFonts();
+        const bool ok = Paint(options.noFade ? 255 : 0);
         if (!ok) { Hide(); RmLog(rm, LOG_ERROR, L"ToolTip: display failed"); return; }
         visible = true; shownAt = GetTickCount64();
     }
@@ -499,24 +420,18 @@ struct Measure {
         const auto now = GetTickCount64();
         if (!visible && now >= due) Display();
         if (!visible) return;
-        if (options.mode == L"native" && !IsWindowVisible(native)) { Hide(); return; }
         if (options.autoPopDelay && now - shownAt >= static_cast<ULONGLONG>(options.autoPopDelay)) { Hide(); return; }
         if (options.follow && !fixedAnchor) {
             POINT p{}; GetCursorPos(&p);
             if (p.x != anchor.x || p.y != anchor.y) {
                 anchor = p;
-                if (native) {
-                    RECT rect{}; GetWindowRect(native, &rect);
-                    p = Placement({rect.right - rect.left, rect.bottom - rect.top});
-                    SetWindowPos(native, nullptr, p.x, p.y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
-                } else Paint();
+                Paint();
             }
         }
-        if (!native && !options.noFade && now - shownAt < 160) Paint(static_cast<BYTE>(std::min<ULONGLONG>(255, (now - shownAt) * 255 / 144)));
+        if (!options.noFade && now - shownAt < 160) Paint(static_cast<BYTE>(std::min<ULONGLONG>(255, (now - shownAt) * 255 / 144)));
     }
     void UpdateOpen() {
         if (!visible) return;
-        const auto oldMode = options.mode;
         const auto oldIcon = options.icon;
         Load();
         const bool iconChanged = oldIcon != options.icon || iconScale != scale ||
@@ -526,20 +441,8 @@ struct Measure {
         auto updated = options.ResolveText();
         if (updated.empty() && options.title.empty()) { Hide(); return; }
         text = std::move(updated);
-        if (options.mode != oldMode) { DestroyNative(); ShowWindow(window, SW_HIDE); Display(); return; }
-        if (native) {
-            // Update the existing tracked control so skin updates do not restart its lifecycle.
-            TOOLINFOW tool{TTTOOLINFOW_V2_SIZE}; tool.hwnd = window; tool.uId = 1; tool.lpszText = text.data();
-            SendMessage(native, TTM_UPDATETIPTEXTW, 0, reinterpret_cast<LPARAM>(&tool));
-            if (iconChanged) ReadIcon();
-            SendMessage(native, TTM_SETTITLEW, NativeIcon(), reinterpret_cast<LPARAM>(options.title.c_str()));
-            RECT rect{}; GetWindowRect(native, &rect);
-            auto p = Placement({rect.right - rect.left, rect.bottom - rect.top});
-            SetWindowPos(native, nullptr, p.x, p.y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
-        } else {
-            if (iconChanged) ReadIcon();
-            if (!Paint()) { Hide(); RmLog(rm, LOG_ERROR, L"ToolTip: redraw failed"); }
-        }
+        if (iconChanged) ReadIcon();
+        if (!Paint()) { Hide(); RmLog(rm, LOG_ERROR, L"ToolTip: redraw failed"); }
     }
     bool CloseHit(LPARAM point) const {
         if (!options.close) return false;
@@ -560,18 +463,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (msg == WM_MOUSEACTIVATE) return MA_NOACTIVATE;
         if (msg == WM_NCHITTEST) return m->CloseHit(lp) ? HTCLIENT : HTTRANSPARENT;
         if (msg == WM_LBUTTONUP) { m->Hide(); return 0; }
-        if (msg == WM_NOTIFY) {
-            const auto header = reinterpret_cast<NMHDR*>(lp);
-            if (header->code == TTN_POP) {
-                // Native CloseButton dismisses the tracked window; Tick clears the instance state.
-                return 0;
-            }
-            if (header->code == TTN_LINKCLICK) {
-                auto action = m->options.Read(L"LinkAction");
-                if (!action.empty()) RmExecute(RmGetSkin(m->rm), action.c_str());
-                return 0;
-            }
-        }
         if (msg == WM_ERASEBKGND) return 1;
     }
     return DefWindowProc(hwnd, msg, wp, lp);

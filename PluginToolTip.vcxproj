@@ -273,7 +273,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dxguid.lib;d2d1.lib;dwrite.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;comctl32.lib;uxtheme.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxguid.lib;d2d1.lib;dwrite.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
