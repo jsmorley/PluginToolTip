@@ -121,7 +121,8 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `W`, `H` | automatic | Fixed text content width/height. Padding, title/icon row, stroke and tail are added outside the text content. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
 | `Title` | empty | Optional heading using the selected font face/size in bold. |
-| `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, or an `.ico` file path relative to the skin. |
+| `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
+| `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). Formatted mode reserves this space in the header. SVGs are rasterized at these dimensions multiplied by the skin scale; native Windows controls own their final icon layout. |
 | `Balloon` | `0` | `1` adds rounded balloon corners and a tail. `0` draws a square rectangle. |
 | `CornerRadius` | `6` | Balloon corner radius. |
 | `CloseButton` | `0` | `1` adds a clickable close button to the formatted heading row. |
@@ -151,6 +152,47 @@ The tooltip is a separate popup rather than a meter. Its W/H describe the conten
 StringAlign describes alignment inside that box. General meter placement, transformations,
 containers, meter actions, and meter groups are not tooltip layout options. Angled text and
 shadows can extend outside the calculated layout; provide sufficient padding/size.
+
+## SVG icons
+
+Use a file path (relative to the skin, or absolute):
+
+```ini
+Icon=#@#Icons\status.svg
+IconW=36
+IconH=24
+```
+
+Or put the complete SVG document on one INI line:
+
+```ini
+Icon=<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="rgb(80,210,160)"/><path d="M7 12l3 3 7-7" fill="none" stroke="white" stroke-width="2"/></svg>
+IconW=32
+IconH=32
+```
+
+Include a `viewBox` so the artwork scales to `IconW` and `IconH`; SVG's
+`preserveAspectRatio` controls fitting within a rectangular viewport. The icon
+appears in the header with or without `Title`. Transparency is preserved.
+These dimension options also resize standard and ICO icons in formatted mode.
+
+Rainmeter variables and measure references in `Icon`, `IconW` and `IconH` are
+resolved on each skin update while the tooltip is open. For dynamic inline
+colors, use `fill="rgb(#IconColor#)"` with `IconColor=80,210,160` in `[Variables]`.
+Use RGB syntax instead of literal hexadecimal `#...` colors when Rainmeter
+variable substitution could interpret the hash characters. A changed icon value,
+dimensions or skin scale reloads the icon; editing an SVG file in place takes
+effect on the next Show or skin refresh.
+
+SVG rendering uses Windows Direct2D and requires Windows 10 Creators Update
+(1703) or later. Both formatted and native modes accept SVG icons; native mode
+converts the SVG to an HICON for the Windows tooltip control. Direct2D supports
+a [subset of SVG](https://learn.microsoft.com/en-us/windows/win32/direct2d/svg-support),
+including paths, basic shapes, transforms and gradients. Use presentation
+attributes such as `fill` and `stroke`; scripts, animation, text, CSS stylesheets,
+filters and external image references are unsupported. Convert text to paths.
+Invalid/unreadable SVGs log a warning and the tooltip continues without an icon.
+SVG documents are limited to 16 MiB.
 
 ## Inline string formatting
 

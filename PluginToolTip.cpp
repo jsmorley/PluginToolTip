@@ -5,7 +5,10 @@
 #include <d3d11.h>
 #include <dxgi.h>
 #include <wincodec.h>
+#include <d2d1_3.h>
+#include <d2d1svg.h>
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 
 using Microsoft::WRL::ComPtr;
@@ -22,6 +25,7 @@ struct Measure {
     HWND skin = nullptr, window = nullptr, native = nullptr;
     HFONT nativeFont = nullptr;
     HICON icon = nullptr;
+    float iconW = 24, iconH = 24, iconScale = 1;
     bool iconOwned = false, requested = false, visible = false, fixedAnchor = false, tailTop = true;
     bool comOwned = false, lastLeft = false, lastRight = false;
     ULONGLONG due = 0, shownAt = 0, hiddenAt = 0;
@@ -92,18 +96,90 @@ struct Measure {
             SendMessage(native, TTM_POP, 0, 0);
         }
     }
+    HICON SvgIcon(const std::wstring& source) {
+        // Rasterize at the skin's scale once per icon change. Both drawing modes
+        // consume the same alpha HICON, including rectangular SVG viewports.
+        std::string xml;
+        if (!source.empty() && source.front() == L'<') {
+            int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, source.data(),
+                static_cast<int>(source.size()), nullptr, 0, nullptr, nullptr);
+            if (!count) return nullptr;
+            xml.resize(count);
+            WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, source.data(),
+                static_cast<int>(source.size()), xml.data(), count, nullptr, nullptr);
+        } else {
+            std::wstring path = RmPathToAbsolute(rm, source.c_str());
+            std::ifstream file(std::filesystem::path(path), std::ios::binary | std::ios::ate);
+            if (!file || file.tellg() <= 0 || file.tellg() > 16 * 1024 * 1024) return nullptr;
+            xml.resize(static_cast<size_t>(file.tellg())); file.seekg(0);
+            if (!file.read(xml.data(), static_cast<std::streamsize>(xml.size()))) return nullptr;
+        }
+        if (xml.size() > 16 * 1024 * 1024 || !Graphics()) return nullptr;
+        ComPtr<ID2D1DeviceContext5> svgContext;
+        ComPtr<IStream> stream;
+        if (FAILED(target.As(&svgContext)) || FAILED(CreateStreamOnHGlobal(nullptr, TRUE, stream.GetAddressOf()))) return nullptr;
+        ULONG written = 0;
+        if (FAILED(stream->Write(xml.data(), static_cast<ULONG>(xml.size()), &written)) || written != xml.size()) return nullptr;
+        LARGE_INTEGER zero{};
+        if (FAILED(stream->Seek(zero, STREAM_SEEK_SET, nullptr))) return nullptr;
+        UINT width = static_cast<UINT>(std::ceil(iconW * scale)), height = static_cast<UINT>(std::ceil(iconH * scale));
+        ComPtr<ID2D1SvgDocument> document;
+        if (FAILED(svgContext->CreateSvgDocument(stream.Get(), D2D1::SizeF(static_cast<float>(width), static_cast<float>(height)), document.GetAddressOf()))) return nullptr;
+        ComPtr<ID2D1Bitmap1> image, readback;
+        auto props = D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET,
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+        if (FAILED(target->CreateBitmap(D2D1::SizeU(width, height), nullptr, 0, &props, image.GetAddressOf()))) return nullptr;
+        target->SetTarget(image.Get()); target->SetDpi(96, 96);
+        target->SetTransform(D2D1::Matrix3x2F::Identity());
+        target->BeginDraw(); target->Clear(D2D1::ColorF(0, 0));
+        svgContext->DrawSvgDocument(document.Get());
+        auto hr = target->EndDraw(); target->SetTarget(nullptr);
+        if (FAILED(hr)) return nullptr;
+        props.bitmapOptions = D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
+        if (FAILED(target->CreateBitmap(D2D1::SizeU(width, height), nullptr, 0, &props, readback.GetAddressOf())) ||
+            FAILED(readback->CopyFromBitmap(nullptr, image.Get(), nullptr))) return nullptr;
+        D2D1_MAPPED_RECT mapped{};
+        if (FAILED(readback->Map(D2D1_MAP_OPTIONS_READ, &mapped))) return nullptr;
+        BITMAPINFO info{}; info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        info.bmiHeader.biWidth = width; info.bmiHeader.biHeight = -static_cast<LONG>(height);
+        info.bmiHeader.biPlanes = 1; info.bmiHeader.biBitCount = 32; info.bmiHeader.biCompression = BI_RGB;
+        void* bits = nullptr;
+        HBITMAP color = CreateDIBSection(nullptr, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
+        std::vector<BYTE> maskBits(((width + 15) / 16) * 2 * height, 0);
+        HBITMAP mask = CreateBitmap(width, height, 1, 1, maskBits.data());
+        HICON result = nullptr;
+        if (color && mask) {
+            for (UINT row = 0; row < height; ++row) memcpy(static_cast<BYTE*>(bits) + row * width * 4, mapped.bits + row * mapped.pitch, width * 4);
+            ICONINFO ii{}; ii.fIcon = TRUE; ii.hbmColor = color; ii.hbmMask = mask;
+            result = CreateIconIndirect(&ii);
+        }
+        if (color) DeleteObject(color);
+        if (mask) DeleteObject(mask);
+        readback->Unmap();
+        return result;
+    }
     void ReadIcon() {
         if (iconOwned && icon) DestroyIcon(icon);
         icon = nullptr; iconOwned = false;
-        const auto name = ToolTip::Lower(options.icon);
+        iconW = static_cast<float>(std::clamp(options.Number(L"IconW", 24), 1.0, 512.0));
+        iconH = static_cast<float>(std::clamp(options.Number(L"IconH", 24), 1.0, 512.0));
+        iconScale = scale;
+        const auto source = ToolTip::Trim(options.icon);
+        const auto name = ToolTip::Lower(source);
         LPCWSTR id = name == L"info" || name == L"information" ? IDI_INFORMATION : name == L"warning" ? IDI_WARNING :
             name == L"error" ? IDI_ERROR : name == L"question" ? IDI_QUESTION : nullptr;
         if (id) icon = ::LoadIconW(nullptr, id);
         else if (!name.empty() && name != L"none" && name != L"0") {
+            const bool svg = source.front() == L'<' || ToolTip::Lower(std::filesystem::path(source).extension().wstring()) == L".svg";
+            if (svg) {
+                icon = SvgIcon(source); iconOwned = icon != nullptr;
+                if (!icon) RmLog(rm, LOG_WARNING, L"ToolTip: SVG icon could not be loaded (check SVG syntax/file and Direct2D SVG support)");
+                return;
+            }
             std::wstring path = RmPathToAbsolute(rm, options.icon.c_str());
             icon = static_cast<HICON>(LoadImageW(nullptr, path.c_str(), IMAGE_ICON, 32, 32, LR_LOADFROMFILE));
             iconOwned = icon != nullptr;
-            if (!icon) RmLog(rm, LOG_WARNING, L"ToolTip: Icon file could not be loaded (use an .ico file)");
+            if (!icon) RmLog(rm, LOG_WARNING, L"ToolTip: Icon file could not be loaded (use an .ico or .svg file, or inline SVG)");
         }
     }
     WPARAM NativeIcon() const {
@@ -159,8 +235,8 @@ struct Measure {
         float h = options.height > 0 ? options.height : size.height + 1;
         if (options.clip == 2 && options.height == 0 && options.clipH > 0) h = std::min(h, options.clipH);
         auto titleSize = Gfx::Canvas::Measure(options.title, *titleFormat, 8192, true);
-        headerH = options.title.empty() && !icon && !options.close ? 0 : std::max(titleSize.height + 5, icon ? 29.0f : 0.0f);
-        float headerW = titleSize.width + (icon ? 30.0f : 0) + (options.close ? 24.0f : 0);
+        headerH = options.title.empty() && !icon && !options.close ? 0 : std::max(titleSize.height + 5, icon ? iconH + 5 : 0.0f);
+        float headerW = titleSize.width + (icon ? iconW + 6 : 0) + (options.close ? 24.0f : 0);
         bodyW = std::clamp(std::max(w, headerW) + options.padding[0] + options.padding[2] + 2 * options.borderWidth, 1.0f, 8192.0f / scale);
         bodyH = std::clamp(h + headerH + options.padding[1] + options.padding[3] + 2 * options.borderWidth, 1.0f, 8192.0f / scale);
         tail = options.balloon ? 12.0f : 0;
@@ -254,11 +330,11 @@ struct Measure {
                 SUCCEEDED(converted->Initialize(iconWic.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone,
                     nullptr, 0, WICBitmapPaletteTypeCustom)) &&
                 SUCCEEDED(target->CreateBitmapFromWicBitmap(converted.Get(), iconBitmap.GetAddressOf())))
-                target->DrawBitmap(iconBitmap.Get(), D2D1::RectF(x, y, x + 24, y + 24));
+                target->DrawBitmap(iconBitmap.Get(), D2D1::RectF(x, y, x + iconW, y + iconH));
         }
         if (headerH > 0) {
             Gfx::Canvas::Draw(target.Get(), options.title, *titleFormat,
-                D2D1::RectF(x + (icon ? 30 : 0), y, bodyW - options.padding[2] - (options.close ? 24 : 0), y + headerH), options.font, false, true);
+                D2D1::RectF(x + (icon ? iconW + 6 : 0), y, bodyW - options.padding[2] - (options.close ? 24 : 0), y + headerH), options.font, false, true);
             if (options.close) {
                 ComPtr<ID2D1SolidColorBrush> closeBrush; target->CreateSolidColorBrush(options.font, closeBrush.GetAddressOf());
                 const float cx = bodyW - options.padding[2] - options.borderWidth - 10;
@@ -421,6 +497,9 @@ struct Measure {
         const auto oldMode = options.mode;
         const auto oldIcon = options.icon;
         Load();
+        const bool iconChanged = oldIcon != options.icon || iconScale != scale ||
+            iconW != static_cast<float>(std::clamp(options.Number(L"IconW", 24), 1.0, 512.0)) ||
+            iconH != static_cast<float>(std::clamp(options.Number(L"IconH", 24), 1.0, 512.0));
         if (!options.enabled) { Hide(); return; }
         auto updated = options.ResolveText();
         if (updated.empty() && options.title.empty()) { Hide(); return; }
@@ -430,13 +509,13 @@ struct Measure {
             // Update the existing tracked control so skin updates do not restart its lifecycle.
             TOOLINFOW tool{TTTOOLINFOW_V2_SIZE}; tool.hwnd = window; tool.uId = 1; tool.lpszText = text.data();
             SendMessage(native, TTM_UPDATETIPTEXTW, 0, reinterpret_cast<LPARAM>(&tool));
-            if (oldIcon != options.icon) ReadIcon();
+            if (iconChanged) ReadIcon();
             SendMessage(native, TTM_SETTITLEW, NativeIcon(), reinterpret_cast<LPARAM>(options.title.c_str()));
             RECT rect{}; GetWindowRect(native, &rect);
             auto p = Placement({rect.right - rect.left, rect.bottom - rect.top});
             SetWindowPos(native, nullptr, p.x, p.y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
         } else {
-            if (oldIcon != options.icon) ReadIcon();
+            if (iconChanged) ReadIcon();
             if (!Paint()) { Hide(); RmLog(rm, LOG_ERROR, L"ToolTip: redraw failed"); }
         }
     }
