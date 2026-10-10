@@ -17,6 +17,15 @@ constexpr wchar_t WindowClass[] = L"Rainmeter.PluginToolTip.Host.1";
 constexpr UINT_PTR TimerId = 1;
 HINSTANCE Module = nullptr;
 unsigned Instances = 0;
+// Rainmeter invokes these measures on its UI thread. Keep one resource domain
+// for the plugin; independent measures only need their own drawing contexts.
+struct GraphicsResources {
+    ComPtr<ID3D11Device> d3d;
+    ComPtr<ID2D1Factory1> factory;
+    ComPtr<ID2D1Device> device;
+    ComPtr<IWICImagingFactory> wic;
+    void Reset() { wic.Reset(); device.Reset(); factory.Reset(); d3d.Reset(); }
+} GraphicsPool;
 struct Measure;
 LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -34,11 +43,7 @@ struct Measure {
     float scale = 1, bodyW = 1, bodyH = 1, headerH = 0, tail = 0;
     std::wstring text;
     ToolTip::Options options;
-    ComPtr<ID3D11Device> d3d;
-    ComPtr<ID2D1Factory1> factory;
-    ComPtr<ID2D1Device> device;
     ComPtr<ID2D1DeviceContext> target;
-    ComPtr<IWICImagingFactory> wic;
     ComPtr<ID2D1Bitmap1> bitmap, staging;
     std::unique_ptr<Gfx::FontCollection> fonts;
     std::unique_ptr<Gfx::TextFormat> format, titleFormat;
@@ -63,9 +68,8 @@ struct Measure {
         Hide();
         DestroyNative();
         if (window) DestroyWindow(window);
-        format.reset(); titleFormat.reset(); fonts.reset();
-        bitmap.Reset(); staging.Reset(); target.Reset(); device.Reset(); factory.Reset(); d3d.Reset(); wic.Reset();
         if (--Instances == 0) {
+            GraphicsPool.Reset();
             Gfx::Canvas::Finalize();
             UnregisterClassW(WindowClass, Module);
         }
@@ -95,6 +99,13 @@ struct Measure {
             SendMessage(native, TTM_TRACKACTIVATE, FALSE, reinterpret_cast<LPARAM>(&tool));
             SendMessage(native, TTM_POP, 0, 0);
         }
+        DestroyNative();
+        format.reset(); titleFormat.reset(); fonts.reset();
+        if (target) target->SetTarget(nullptr);
+        bitmap.Reset(); staging.Reset(); target.Reset();
+        // Drop unused Direct2D caches, while retaining one device to avoid
+        // initializing another driver device every time a card is hovered.
+        if (GraphicsPool.device) GraphicsPool.device->ClearResources();
     }
     HICON SvgIcon(const std::wstring& source) {
         // Rasterize at the skin's scale once per icon change. Both drawing modes
@@ -191,17 +202,21 @@ struct Measure {
     }
     bool Graphics() {
         if (target) return true;
+        if (GraphicsPool.device)
+            return SUCCEEDED(GraphicsPool.device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, target.GetAddressOf()));
+        GraphicsResources resources;
         UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
         auto hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags, nullptr, 0,
-            D3D11_SDK_VERSION, d3d.GetAddressOf(), nullptr, nullptr);
+            D3D11_SDK_VERSION, resources.d3d.GetAddressOf(), nullptr, nullptr);
         if (FAILED(hr)) hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, flags, nullptr, 0,
-            D3D11_SDK_VERSION, d3d.GetAddressOf(), nullptr, nullptr);
+            D3D11_SDK_VERSION, resources.d3d.GetAddressOf(), nullptr, nullptr);
         ComPtr<IDXGIDevice> dxgi;
-        if (FAILED(hr) || FAILED(d3d.As(&dxgi))) return false;
-        if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, factory.GetAddressOf()))) return false;
-        if (FAILED(factory->CreateDevice(dxgi.Get(), device.GetAddressOf()))) return false;
-        if (FAILED(device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, target.GetAddressOf()))) return false;
-        CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wic.GetAddressOf()));
+        if (FAILED(hr) || FAILED(resources.d3d.As(&dxgi))) return false;
+        if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, resources.factory.GetAddressOf()))) return false;
+        if (FAILED(resources.factory->CreateDevice(dxgi.Get(), resources.device.GetAddressOf()))) return false;
+        if (FAILED(resources.device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, target.GetAddressOf()))) return false;
+        CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(resources.wic.GetAddressOf()));
+        GraphicsPool = std::move(resources);
         return true;
     }
     void LoadFonts() {
@@ -265,10 +280,17 @@ struct Measure {
         if (!Graphics()) return false;
         Layout();
         origin = Placement(pixels);
-        bitmap.Reset(); staging.Reset();
         auto props = D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET,
             D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), 96 * scale, 96 * scale);
-        if (FAILED(target->CreateBitmap(D2D1::SizeU(pixels.cx, pixels.cy), nullptr, 0, &props, bitmap.GetAddressOf()))) return false;
+        auto dimensions = D2D1::SizeU(pixels.cx, pixels.cy);
+        if (bitmap) {
+            auto current = bitmap->GetPixelSize();
+            float dpiX, dpiY; bitmap->GetDpi(&dpiX, &dpiY);
+            if (current.width != dimensions.width || current.height != dimensions.height || dpiX != 96 * scale || dpiY != 96 * scale) {
+                bitmap.Reset(); staging.Reset();
+            }
+        }
+        if (!bitmap && FAILED(target->CreateBitmap(dimensions, nullptr, 0, &props, bitmap.GetAddressOf()))) return false;
         target->SetTarget(bitmap.Get()); target->SetDpi(96 * scale, 96 * scale);
         target->SetTextAntialiasMode(options.antiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
         target->BeginDraw(); target->Clear(D2D1::ColorF(0, 0));
@@ -300,7 +322,7 @@ struct Measure {
             float tx = std::clamp((anchor.x - origin.x) / scale, body.left + r + 9, std::max(body.left + r + 9, body.right - r - 9));
             ComPtr<ID2D1PathGeometry> geometry;
             ComPtr<ID2D1GeometrySink> sink;
-            factory->CreatePathGeometry(geometry.GetAddressOf());
+            GraphicsPool.factory->CreatePathGeometry(geometry.GetAddressOf());
             if (geometry && SUCCEEDED(geometry->Open(sink.GetAddressOf()))) {
                 sink->BeginFigure(D2D1::Point2F(body.left + r, body.top), D2D1_FIGURE_BEGIN_FILLED);
                 if (tailTop) { sink->AddLine(D2D1::Point2F(tx - 8, body.top)); sink->AddLine(D2D1::Point2F(tx, inset)); sink->AddLine(D2D1::Point2F(tx + 8, body.top)); }
@@ -323,10 +345,10 @@ struct Measure {
         }
         const float x = options.padding[0] + options.borderWidth;
         const float y = top + options.padding[1] + options.borderWidth;
-        if (icon && wic) {
+        if (icon && GraphicsPool.wic) {
             ComPtr<IWICBitmap> iconWic; ComPtr<IWICFormatConverter> converted; ComPtr<ID2D1Bitmap> iconBitmap;
-            if (SUCCEEDED(wic->CreateBitmapFromHICON(icon, iconWic.GetAddressOf())) &&
-                SUCCEEDED(wic->CreateFormatConverter(converted.GetAddressOf())) &&
+            if (SUCCEEDED(GraphicsPool.wic->CreateBitmapFromHICON(icon, iconWic.GetAddressOf())) &&
+                SUCCEEDED(GraphicsPool.wic->CreateFormatConverter(converted.GetAddressOf())) &&
                 SUCCEEDED(converted->Initialize(iconWic.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone,
                     nullptr, 0, WICBitmapPaletteTypeCustom)) &&
                 SUCCEEDED(target->CreateBitmapFromWicBitmap(converted.Get(), iconBitmap.GetAddressOf())))
@@ -360,7 +382,7 @@ struct Measure {
         auto hr = target->EndDraw(); target->SetTarget(nullptr);
         if (FAILED(hr)) return false;
         props.bitmapOptions = D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
-        if (FAILED(target->CreateBitmap(D2D1::SizeU(pixels.cx, pixels.cy), nullptr, 0, &props, staging.GetAddressOf())) ||
+        if ((!staging && FAILED(target->CreateBitmap(dimensions, nullptr, 0, &props, staging.GetAddressOf()))) ||
             FAILED(staging->CopyFromBitmap(nullptr, bitmap.Get(), nullptr))) return false;
         D2D1_MAPPED_RECT mapped{};
         if (FAILED(staging->Map(D2D1_MAP_OPTIONS_READ, &mapped))) return false;

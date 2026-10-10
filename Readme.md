@@ -67,6 +67,11 @@ case-insensitive. Invalid commands/coordinates and invalid inline options are lo
 
 Use any number of differently named `Measure=Plugin` / `Plugin=ToolTip` measures in one skin.
 Every instance owns its window, resolved text, layout, icon, timers, pending display, and visibility.
+Formatted instances share one Direct3D/Direct2D device to avoid multiplying driver
+memory as different tooltips are shown. Hiding an instance releases its rendering
+context, bitmap buffers, fonts/layouts and icon; those resources are recreated on
+the next Show. Bitmap buffers are reused while an open tooltip's size and scale
+stay unchanged. The shared device is released when the last measure is finalized.
 Showing, hiding, updating, or removing one measure does not operate on the others. More than one
 tooltip can be visible at once.
 
