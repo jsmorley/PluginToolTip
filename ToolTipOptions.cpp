@@ -149,7 +149,7 @@ void Options::Load(void* context) {
     auto pads = Split(Read(L"Padding", L"8,6,8,6"), L',');
     for (size_t i = 0; i < 4; ++i) padding[i] = i < pads.size() ? std::clamp(Value(pads[i]), 0.0f, 512.0f) : 0;
     offsetX = static_cast<float>(std::clamp(Number(L"OffsetX", 0), -8192.0, 8192.0));
-    offsetY = static_cast<float>(std::clamp(Number(L"OffsetY", 20), -8192.0, 8192.0));
+    offsetY = static_cast<float>(std::clamp(Number(L"OffsetY", Number(L"Balloon", 0) != 0 ? 12 : 20), -8192.0, 8192.0));
     auto delay = [&](const wchar_t* key, int def) { return static_cast<int>(std::clamp(Number(key, def), 0.0, 3600000.0)); };
     initialDelay = delay(L"InitialDelay", 500); reshowDelay = delay(L"ReshowDelay", 100); autoPopDelay = delay(L"AutoPopDelay", 5000);
     auto flag = [&](const wchar_t* key, bool def) { return Number(key, def ? 1 : 0) != 0; };

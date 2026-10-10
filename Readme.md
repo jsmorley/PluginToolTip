@@ -187,7 +187,7 @@ logged and skipped. Up to 256 bindings, inline settings, and local fonts are sup
 | `ReshowDelay` | `100` | Delay when reopened within one second of its last hide. |
 | `AutoPopDelay` | `5000` | Visible timeout in milliseconds; 0 keeps it open until Hide or dismissal. |
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute. Auto starts below and flips above near the monitor's bottom. |
-| `OffsetX`, `OffsetY` | `0`, `20` | Offset from the anchor in skin units. Above/left use the absolute offset as the gap. |
+| `OffsetX`, `OffsetY` | `0`, `12` for balloons / `20` for square tooltips | Offset from the anchor in skin units. The balloon default places its tail closer to the cursor. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
 | `FollowMouse` | `0` | 1 follows the cursor while open. Explicit Show x y remains fixed. |
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
