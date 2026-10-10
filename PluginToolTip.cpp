@@ -1,5 +1,6 @@
 // ToolTip Rainmeter plugin. GPL v2; see LICENSE and vendor/README.md.
 #include "ToolTipOptions.h"
+#include "CursorAttachment.h"
 #include <d3d11.h>
 #include <dxgi.h>
 #include <wincodec.h>
@@ -35,7 +36,9 @@ struct Measure {
     bool iconOwned = false, requested = false, visible = false, fixedAnchor = false, tailTop = true;
     bool comOwned = false, lastLeft = false, lastRight = false;
     ULONGLONG due = 0, shownAt = 0, hiddenAt = 0;
-    POINT anchor{}, origin{};
+    POINT anchor{}, origin{}, attachment{};
+    HCURSOR measuredCursor = nullptr;
+    ToolTip::CursorEdges cursorEdges;
     SIZE pixels{};
     float scale = 1, bodyW = 1, bodyH = 1, headerH = 0, tail = 0;
     std::wstring text;
@@ -240,15 +243,35 @@ struct Measure {
     POINT Placement(SIZE size) {
         const auto xOffset = static_cast<LONG>(options.offsetX * scale);
         const auto yOffset = static_cast<LONG>(options.offsetY * scale);
-        POINT p{anchor.x + xOffset, anchor.y + yOffset};
-        if (options.position == L"above") p.y = anchor.y - size.cy - std::abs(yOffset);
+        POINT below = anchor, above = anchor;
+        if (options.balloon && !fixedAnchor) {
+            CURSORINFO cursor{sizeof(cursor)};
+            HCURSOR current = GetCursorInfo(&cursor) && (cursor.flags & CURSOR_SHOWING) ? cursor.hCursor : nullptr;
+            if (current != measuredCursor) {
+                measuredCursor = current; cursorEdges = ToolTip::GetCursorEdges(current);
+            }
+            below.x += cursorEdges.bottom.x; below.y += cursorEdges.bottom.y;
+            above.x += cursorEdges.top.x; above.y += cursorEdges.top.y;
+        }
+        attachment = below;
+        POINT p{below.x + xOffset, below.y + yOffset};
+        if (options.position == L"above") { attachment = above; p = {above.x + xOffset, above.y - size.cy - std::abs(yOffset)}; }
         if (options.position == L"left") { p.x = anchor.x - size.cx - std::abs(xOffset); p.y = anchor.y; }
         if (options.position == L"right") { p.x = anchor.x + std::abs(xOffset); p.y = anchor.y; }
         if (options.position == L"absolute") p = {fixedAnchor ? anchor.x : xOffset, fixedAnchor ? anchor.y : yOffset};
         MONITORINFO monitor{sizeof(monitor)};
         GetMonitorInfoW(MonitorFromPoint(anchor, MONITOR_DEFAULTTONEAREST), &monitor);
         auto work = monitor.rcWork;
-        if (options.position == L"auto" && p.y + size.cy > work.bottom) p.y = anchor.y - size.cy - std::abs(yOffset);
+        if (options.position == L"auto" && p.y + size.cy > work.bottom) {
+            attachment = above; p = {above.x + xOffset, above.y - size.cy - std::abs(yOffset)};
+        }
+        if (options.balloon && (options.position == L"auto" || options.position == L"above" || options.position == L"below")) {
+            const float inset = options.borderWidth / 2 + 0.5f / scale;
+            const float radius = std::min({options.radius, std::max(0.0f, bodyW - 2 * inset) / 2, std::max(0.0f, bodyH - 2 * inset) / 2});
+            // Shift the body so the tail tip can point directly at the cursor
+            // rather than being clamped several pixels to its right.
+            p.x -= static_cast<LONG>(std::ceil((inset + radius + 9) * scale));
+        } else attachment = anchor;
         tailTop = p.y >= anchor.y;
         if (options.keepOnScreen) {
             p.x = std::clamp(p.x, work.left, std::max(work.left, work.right - size.cx));
@@ -299,7 +322,7 @@ struct Measure {
         if (options.balloon) {
             // One closed path, so the stroke follows the tail without a seam across its base.
             float r = std::min({options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
-            float tx = std::clamp((anchor.x - origin.x) / scale, body.left + r + 9, std::max(body.left + r + 9, body.right - r - 9));
+            float tx = std::clamp((attachment.x - origin.x) / scale, body.left + r + 9, std::max(body.left + r + 9, body.right - r - 9));
             ComPtr<ID2D1PathGeometry> geometry;
             ComPtr<ID2D1GeometrySink> sink;
             GraphicsPool.factory->CreatePathGeometry(geometry.GetAddressOf());

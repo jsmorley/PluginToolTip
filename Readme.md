@@ -230,7 +230,7 @@ logged and skipped. Up to 256 bindings, inline settings, and local fonts are sup
 | `ReshowDelay` | `100` | Delay when reopened within one second of its last hide. |
 | `AutoPopDelay` | `5000` | Visible timeout in milliseconds; 0 keeps it open until Hide or dismissal. |
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute. Auto starts below and flips above near the monitor's bottom. |
-| `OffsetX`, `OffsetY` | `0`, `12` for balloons / `20` for square tooltips | Offset from the anchor in skin units. The balloon default places its tail closer to the cursor. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
+| `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in skin units. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
 | `FollowMouse` | `0` | 1 follows the cursor while open. Explicit Show x y remains fixed. |
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
@@ -241,6 +241,10 @@ logged and skipped. Up to 256 bindings, inline settings, and local fonts are sup
 With Position=Absolute, Show x y gives the popup's top-left screen position. With plain Show,
 OffsetX/OffsetY are the absolute top-left coordinates, scaled from skin units. Other positions
 treat Show x y as an anchor. Balloons point their tail toward the anchor vertically.
+For Auto/Below/Above balloon positioning, the body shifts left to align its tail
+with that anchor. Cursor bounds exclude transparent bitmap padding and account for
+the cursor hotspot. Explicit Show x y anchors remain the supplied screen point.
+KeepOnScreen may move the body/tail near a monitor edge.
 
 Escape dismisses requested/open tooltips. The plugin also hides tooltips when the owning skin
 is hidden/minimized. Popups do not activate or steal focus, and content passes mouse

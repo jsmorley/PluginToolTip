@@ -248,6 +248,7 @@
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <ClInclude Include="ToolTipOptions.h" />
+    <ClInclude Include="CursorAttachment.h" />
     <ClInclude Include="vendor\StdAfx.h" />
     <ClInclude Include="vendor\StringUtil.h" />
     <ClInclude Include="vendor\Gfx\Canvas.h" />
