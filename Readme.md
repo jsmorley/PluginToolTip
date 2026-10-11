@@ -85,7 +85,7 @@ they do not apply a bitmap bevel to the tooltip background, text, or icons.
 
 ## Commands and measure values
 
-| Command | Result |
+| [SP]20[/SP]Command[SP]20[/SP] | Result |
 | --- | --- |
 | `Show` | Opens at the mouse position after the configured delay. |
 | `Show x y` | Opens using an explicit anchor in physical desktop/screen pixels; negative coordinates are supported. |
@@ -155,7 +155,7 @@ For a white-to-black background gradient, set `SolidColor=#ffffff`,
 Lengths below are skin units; the plugin uses the skin's effective DPI/zoom scale when supported
 by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen pixels.
 
-| Option | Default | Meaning |
+| [SP]20[/SP]Option[SP]20[/SP] | Default | Meaning |
 | --- | --- | --- |
 | `SolidColor` | `255,255,255,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
 | `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
@@ -273,7 +273,7 @@ the body. A pattern such as `.*` applies to both values; patterns cannot span ac
 
 Supported settings follow the Rainmeter String meter syntax:
 
-| Setting | Example |
+| [SP]20[/SP]Setting[SP]20[/SP] | Example |
 | --- | --- |
 | Face, Size, Color, Weight | `Face | Segoe UI`, `Size | 14.5`, `Color | FF8844FF`, `Weight | 700` |
 | Case | `Case | Upper` (also Lower, Proper, Sentence) |
@@ -292,7 +292,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 
 ## Behavior and positioning
 
-| Option                  ​	| Default | Meaning |
+| [SP]20[/SP]Option[SP]20[/SP] | Default | Meaning |
 | --- | --- | --- |
 | `Enabled` | `1` | 0 prevents Show and hides an open instance on its next update. |
 | `InitialDelay` | `500` | First display delay in milliseconds. |
