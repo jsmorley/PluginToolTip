@@ -437,7 +437,7 @@ struct Measure {
         }
         if (headerH > 0) {
             Gfx::Canvas::Draw(target.Get(), options.title, *titleFormat,
-                D2D1::RectF(x + (icon ? iconW + 6 : 0), y, bodyW - options.padding[2] - (options.close ? 24 : 0), y + headerH), options.font, false, true);
+                D2D1::RectF(x + (icon ? iconW + 6 : 0), y, bodyW - options.padding[2] - (options.close ? 24 : 0), y + headerH), options.titleColor, false, true);
             if (options.close) {
                 ComPtr<ID2D1SolidColorBrush> closeBrush; target->CreateSolidColorBrush(options.font, closeBrush.GetAddressOf());
                 const float cx = bodyW - options.padding[2] - options.borderWidth - 10;

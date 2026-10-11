@@ -142,6 +142,7 @@ void Options::Load(void* context) {
     auto second = Read(L"SolidColor2"); backgroundGradient = !second.empty(); background2 = Color(second, background);
     gradientAngle = static_cast<float>(Number(L"GradientAngle", 0));
     font = Color(Read(L"FontColor", L"0,0,0,255"), D2D1::ColorF(0));
+    titleColor = Color(Read(L"TitleColor"), font);
     effectColor = Color(Read(L"FontEffectColor", L"0,0,0,255"), D2D1::ColorF(0));
     border = Color(Read(L"BorderColor", L"110,110,110,255"), D2D1::ColorF(0x6e6e6e));
     borderWidth = static_cast<float>(std::clamp(Number(L"BorderWidth", 1), 0.0, 32.0));
