@@ -227,7 +227,7 @@ logged and skipped. Up to 256 bindings, inline settings, and local fonts are sup
 
 ## Behavior and positioning
 
-| Option | Default | Meaning |
+| Option                  ​	| Default | Meaning |
 | --- | --- | --- |
 | `Enabled` | `1` | 0 prevents Show and hides an open instance on its next update. |
 | `InitialDelay` | `500` | First display delay in milliseconds. |
