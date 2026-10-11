@@ -80,9 +80,6 @@ struct Measure {
     }
     void Load() {
         options.Load(rm);
-        // A stroke describes the entire outline. Older Border* names remain aliases.
-        options.borderWidth = static_cast<float>(std::clamp(options.Number(L"StrokeSize", options.borderWidth), 0.0, 32.0));
-        options.border = ToolTip::Color(options.Read(L"StrokeColor"), options.border);
         scale = std::clamp(RmGetSkinScale(rm), 0.25f, 8.0f);
     }
     void Hide() {
@@ -312,6 +309,28 @@ struct Measure {
         const float inset = options.borderWidth / 2 + 0.5f / scale;
         const float top = tailTop ? tail : 0;
         const auto body = D2D1::RectF(inset, top + inset, bodyW - inset, top + bodyH - inset);
+        ComPtr<ID2D1Brush> borderBrush = stroke;
+        if (options.borderWidth > 0 && options.strokeBevel != L"none") {
+            const auto light = options.strokeBevel == L"raised" ? options.bevelLight : options.bevelDark;
+            const auto dark = options.strokeBevel == L"raised" ? options.bevelDark : options.bevelLight;
+            // A diagonal join at the top-right and bottom-left corners divides
+            // the top/left highlight from the bottom/right shadow. The same
+            // brush follows the balloon's closed outline, including its tail.
+            D2D1_GRADIENT_STOP stops[] = {{0, light}, {0.5f, light}, {0.5f, dark}, {1, dark}};
+            ComPtr<ID2D1GradientStopCollection> collection;
+            ComPtr<ID2D1LinearGradientBrush> bevel;
+            const float inverseW = 1 / std::max(1.0f, body.right - body.left);
+            const float inverseH = 1 / std::max(1.0f, body.bottom - body.top);
+            const float extent = 1 / (inverseW * inverseW + inverseH * inverseH);
+            const auto center = D2D1::Point2F((body.left + body.right) / 2, (body.top + body.bottom) / 2);
+            if (SUCCEEDED(target->CreateGradientStopCollection(stops, 4, collection.GetAddressOf()))) {
+                target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(
+                    D2D1::Point2F(center.x - inverseW * extent, center.y - inverseH * extent),
+                    D2D1::Point2F(center.x + inverseW * extent, center.y + inverseH * extent)),
+                    collection.Get(), bevel.GetAddressOf());
+                if (bevel) borderBrush = bevel;
+            }
+        }
         if (options.balloon) {
             // One closed path, so the stroke follows the tail without a seam across its base.
             float r = std::min({options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
@@ -333,11 +352,11 @@ struct Measure {
                 sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(body.left + r, body.top), D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
                 sink->EndFigure(D2D1_FIGURE_END_CLOSED); sink->Close();
                 target->FillGeometry(geometry.Get(), background.Get());
-                if (options.borderWidth > 0) target->DrawGeometry(geometry.Get(), stroke.Get(), options.borderWidth);
+                if (options.borderWidth > 0) target->DrawGeometry(geometry.Get(), borderBrush.Get(), options.borderWidth);
             }
         } else {
             target->FillRectangle(body, background.Get());
-            if (options.borderWidth > 0) target->DrawRectangle(body, stroke.Get(), options.borderWidth);
+            if (options.borderWidth > 0) target->DrawRectangle(body, borderBrush.Get(), options.borderWidth);
         }
         const float x = options.padding[0] + options.borderWidth;
         const float y = top + options.padding[1] + options.borderWidth;

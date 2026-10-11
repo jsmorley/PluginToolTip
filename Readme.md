@@ -47,6 +47,20 @@ in the matching leave action to cancel pending displays as well as close visible
 Avoid also setting Rainmeter's built-in `ToolTipText` on the same target, which can open a
 second tooltip.
 
+For a raised beveled border, add these options to the tooltip measure:
+
+```ini
+StrokeSize=2.5
+StrokeColor=110,110,110,255
+StrokeBevel=Raised
+StrokeBevelLightColor=220,220,220,255
+StrokeBevelDarkColor=45,45,45,255
+```
+
+Use `StrokeBevel=Sunken` to reverse the bevel. The two bevel colors are optional;
+omit them to derive the shading from `StrokeColor`. Fractional stroke sizes scale
+with the skin and are antialiased; very thin outlines produce a subtler bevel.
+
 ## Commands and measure values
 
 | Command | Result |
@@ -124,8 +138,11 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `SolidColor` | `255,255,255,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
 | `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
 | `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
-| `StrokeSize` | `1` | Outer outline width, including the balloon tail; `0` disables the outline. |
+| `StrokeSize` | `1` | Outer outline width in skin units, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. |
 | `StrokeColor` | `110,110,110,255` | Color of the outer outline. |
+| `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` uses a light top/left and dark bottom/right border; `Sunken` reverses them. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
+| `StrokeBevelLightColor` | derived from StrokeColor | Bevel highlight color. Defaults to StrokeColor blended 45% toward white, preserving its alpha. |
+| `StrokeBevelDarkColor` | derived from StrokeColor | Bevel shadow color. Defaults to StrokeColor blended 45% toward black, preserving its alpha. |
 | `W`, `H` | automatic | Fixed text content width/height. Padding, title/icon row, stroke and tail are added outside the text content. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
 | `Title` | empty | Optional heading using the selected font face/size in bold. |

@@ -145,6 +145,18 @@ void Options::Load(void* context) {
     effectColor = Color(Read(L"FontEffectColor", L"0,0,0,255"), D2D1::ColorF(0));
     border = Color(Read(L"BorderColor", L"110,110,110,255"), D2D1::ColorF(0x6e6e6e));
     borderWidth = static_cast<float>(std::clamp(Number(L"BorderWidth", 1), 0.0, 32.0));
+    borderWidth = static_cast<float>(std::clamp(Number(L"StrokeSize", borderWidth), 0.0, 32.0));
+    border = Color(Read(L"StrokeColor"), border);
+    strokeBevel = Lower(Trim(Read(L"StrokeBevel", L"None")));
+    if (strokeBevel != L"none" && strokeBevel != L"raised" && strokeBevel != L"sunken") {
+        RmLog(rm, LOG_WARNING, L"ToolTip: invalid StrokeBevel (use None, Raised, or Sunken)");
+        strokeBevel = L"none";
+    }
+    bevelLight = Color(Read(L"StrokeBevelLightColor"), D2D1::ColorF(
+        border.r + (1 - border.r) * 0.45f, border.g + (1 - border.g) * 0.45f,
+        border.b + (1 - border.b) * 0.45f, border.a));
+    bevelDark = Color(Read(L"StrokeBevelDarkColor"), D2D1::ColorF(
+        border.r * 0.55f, border.g * 0.55f, border.b * 0.55f, border.a));
     radius = static_cast<float>(std::clamp(Number(L"CornerRadius", 6), 0.0, 256.0));
     auto pads = Split(Read(L"Padding", L"8,6,8,6"), L',');
     for (size_t i = 0; i < 4; ++i) padding[i] = i < pads.size() ? std::clamp(Value(pads[i]), 0.0f, 512.0f) : 0;
