@@ -157,6 +157,16 @@ void Options::Load(void* context) {
         border.b + (1 - border.b) * 0.45f, border.a));
     bevelDark = Color(Read(L"StrokeBevelDarkColor"), D2D1::ColorF(
         border.r * 0.55f, border.g * 0.55f, border.b * 0.55f, border.a));
+    bevelProfile = Lower(Trim(Read(L"StrokeBevelProfile", L"Linear")));
+    if (bevelProfile != L"linear" && bevelProfile != L"curved" &&
+        bevelProfile != L"concave" && bevelProfile != L"bulged") {
+        RmLog(rm, LOG_WARNING, L"ToolTip: invalid StrokeBevelProfile (use Linear, Curved, Concave, or Bulged)");
+        bevelProfile = L"linear";
+    }
+    bevelWidth = static_cast<float>(std::clamp(Number(L"StrokeBevelWidth", borderWidth), 0.0, static_cast<double>(borderWidth)));
+    bevelRelief = static_cast<float>(std::clamp(Number(L"StrokeBevelRelief", 1), 0.0, 1.0));
+    bevelSmoothness = static_cast<float>(std::clamp(Number(L"StrokeBevelSmoothness", 0), 0.0, 1.0));
+    bevelAngle = static_cast<float>(std::fmod(Number(L"StrokeBevelLightAngle", 225), 360.0));
     radius = static_cast<float>(std::clamp(Number(L"CornerRadius", 6), 0.0, 256.0));
     auto pads = Split(Read(L"Padding", L"8,6,8,6"), L',');
     for (size_t i = 0; i < 4; ++i) padding[i] = i < pads.size() ? std::clamp(Value(pads[i]), 0.0f, 512.0f) : 0;

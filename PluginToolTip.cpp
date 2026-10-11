@@ -269,6 +269,83 @@ struct Measure {
         }
         return p;
     }
+    void DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat) {
+        if (options.strokeBevel == L"none" || options.bevelWidth == 0 || options.bevelRelief == 0) {
+            target->DrawGeometry(outline, flat, options.borderWidth);
+            return;
+        }
+        auto widen = [&](float width, ComPtr<ID2D1PathGeometry>& path) {
+            ComPtr<ID2D1GeometrySink> sink;
+            return SUCCEEDED(GraphicsPool.factory->CreatePathGeometry(path.GetAddressOf())) &&
+                SUCCEEDED(path->Open(sink.GetAddressOf())) &&
+                SUCCEEDED(outline->Widen(width, nullptr, nullptr, 0.1f / scale, sink.Get())) &&
+                SUCCEEDED(sink->Close());
+        };
+        auto band = [&](ID2D1Geometry* outer, ID2D1Geometry* inner, ID2D1Brush* brush) {
+            if (!inner) { target->FillGeometry(outer, brush); return; }
+            ComPtr<ID2D1PathGeometry> ring;
+            ComPtr<ID2D1GeometrySink> sink;
+            if (SUCCEEDED(GraphicsPool.factory->CreatePathGeometry(ring.GetAddressOf())) &&
+                SUCCEEDED(ring->Open(sink.GetAddressOf())) &&
+                SUCCEEDED(outer->CombineWithGeometry(inner, D2D1_COMBINE_MODE_EXCLUDE, nullptr, 0.1f / scale, sink.Get())) &&
+                SUCCEEDED(sink->Close())) target->FillGeometry(ring.Get(), brush);
+        };
+        const float w = std::max(1.0f, body.right - body.left), h = std::max(1.0f, body.bottom - body.top);
+        const float radians = options.bevelAngle * 3.14159265f / 180;
+        const float dx = -std::cos(radians) / w, dy = -std::sin(radians) / h;
+        const float extent = (std::abs(dx) * w + std::abs(dy) * h) / (2 * (dx * dx + dy * dy));
+        const auto center = D2D1::Point2F((body.left + body.right) / 2, (body.top + body.bottom) / 2);
+        auto brushFor = [&](float strength) {
+            auto mix = [&](D2D1_COLOR_F color) {
+                const float amount = std::abs(strength) * options.bevelRelief;
+                return D2D1::ColorF(options.border.r + (color.r - options.border.r) * amount,
+                    options.border.g + (color.g - options.border.g) * amount,
+                    options.border.b + (color.b - options.border.b) * amount,
+                    options.border.a + (color.a - options.border.a) * amount);
+            };
+            const bool raised = (options.strokeBevel == L"raised") != (strength < 0);
+            const auto light = mix(raised ? options.bevelLight : options.bevelDark);
+            const auto dark = mix(raised ? options.bevelDark : options.bevelLight);
+            const float fade = options.bevelSmoothness / 2;
+            D2D1_GRADIENT_STOP stops[] = {{0, light}, {0.5f - fade, light}, {0.5f + fade, dark}, {1, dark}};
+            ComPtr<ID2D1GradientStopCollection> collection;
+            ComPtr<ID2D1LinearGradientBrush> brush;
+            if (SUCCEEDED(target->CreateGradientStopCollection(stops, 4, collection.GetAddressOf())))
+                target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(
+                    D2D1::Point2F(center.x - dx * extent, center.y - dy * extent),
+                    D2D1::Point2F(center.x + dx * extent, center.y + dy * extent)), collection.Get(), brush.GetAddressOf());
+            return brush;
+        };
+        // Keep the original single-stroke rendering for the default profile.
+        if (options.bevelProfile == L"linear" && options.bevelWidth == options.borderWidth) {
+            auto brush = brushFor(1);
+            target->DrawGeometry(outline, brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat, options.borderWidth);
+            return;
+        }
+        ComPtr<ID2D1PathGeometry> outer;
+        if (!widen(options.bevelWidth, outer)) { target->DrawGeometry(outline, flat, options.borderWidth); return; }
+        if (options.bevelWidth < options.borderWidth) {
+            ComPtr<ID2D1PathGeometry> full;
+            if (widen(options.borderWidth, full)) band(full.Get(), outer.Get(), flat);
+        }
+        // Disjoint contour bands avoid accumulating alpha over the background.
+        // Curved softens toward the center; Concave recesses it; Bulged reverses
+        // the slope midway across the band for a ridge with two lit faces.
+        const int count = options.bevelProfile == L"linear" ? 1 :
+            std::clamp(static_cast<int>(std::ceil(options.bevelWidth * scale * 2)), 2, 32);
+        for (int i = 0; i < count; ++i) {
+            const float t = (i + 0.5f) / count;
+            float strength = 1;
+            if (options.bevelProfile == L"curved") strength = std::cos(t * 3.14159265f / 2);
+            else if (options.bevelProfile == L"concave") strength = -std::sin(t * 3.14159265f / 2);
+            else if (options.bevelProfile == L"bulged") strength = std::cos(t * 3.14159265f);
+            auto brush = brushFor(strength);
+            ComPtr<ID2D1PathGeometry> inner;
+            if (i + 1 < count && !widen(options.bevelWidth * (1 - (i + 1.0f) / count), inner)) break;
+            band(outer.Get(), inner.Get(), brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat);
+            outer = inner;
+        }
+    }
     bool Paint(BYTE opacity = 255) {
         if (!Graphics()) return false;
         Layout();
@@ -309,28 +386,6 @@ struct Measure {
         const float inset = options.borderWidth / 2 + 0.5f / scale;
         const float top = tailTop ? tail : 0;
         const auto body = D2D1::RectF(inset, top + inset, bodyW - inset, top + bodyH - inset);
-        ComPtr<ID2D1Brush> borderBrush = stroke;
-        if (options.borderWidth > 0 && options.strokeBevel != L"none") {
-            const auto light = options.strokeBevel == L"raised" ? options.bevelLight : options.bevelDark;
-            const auto dark = options.strokeBevel == L"raised" ? options.bevelDark : options.bevelLight;
-            // A diagonal join at the top-right and bottom-left corners divides
-            // the top/left highlight from the bottom/right shadow. The same
-            // brush follows the balloon's closed outline, including its tail.
-            D2D1_GRADIENT_STOP stops[] = {{0, light}, {0.5f, light}, {0.5f, dark}, {1, dark}};
-            ComPtr<ID2D1GradientStopCollection> collection;
-            ComPtr<ID2D1LinearGradientBrush> bevel;
-            const float inverseW = 1 / std::max(1.0f, body.right - body.left);
-            const float inverseH = 1 / std::max(1.0f, body.bottom - body.top);
-            const float extent = 1 / (inverseW * inverseW + inverseH * inverseH);
-            const auto center = D2D1::Point2F((body.left + body.right) / 2, (body.top + body.bottom) / 2);
-            if (SUCCEEDED(target->CreateGradientStopCollection(stops, 4, collection.GetAddressOf()))) {
-                target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(
-                    D2D1::Point2F(center.x - inverseW * extent, center.y - inverseH * extent),
-                    D2D1::Point2F(center.x + inverseW * extent, center.y + inverseH * extent)),
-                    collection.Get(), bevel.GetAddressOf());
-                if (bevel) borderBrush = bevel;
-            }
-        }
         if (options.balloon) {
             // One closed path, so the stroke follows the tail without a seam across its base.
             float r = std::min({options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
@@ -352,11 +407,15 @@ struct Measure {
                 sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(body.left + r, body.top), D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
                 sink->EndFigure(D2D1_FIGURE_END_CLOSED); sink->Close();
                 target->FillGeometry(geometry.Get(), background.Get());
-                if (options.borderWidth > 0) target->DrawGeometry(geometry.Get(), borderBrush.Get(), options.borderWidth);
+                if (options.borderWidth > 0) DrawBorder(geometry.Get(), body, stroke.Get());
             }
         } else {
             target->FillRectangle(body, background.Get());
-            if (options.borderWidth > 0) target->DrawRectangle(body, borderBrush.Get(), options.borderWidth);
+            if (options.borderWidth > 0) {
+                ComPtr<ID2D1RectangleGeometry> rectangle;
+                if (SUCCEEDED(GraphicsPool.factory->CreateRectangleGeometry(body, rectangle.GetAddressOf())))
+                    DrawBorder(rectangle.Get(), body, stroke.Get());
+            }
         }
         const float x = options.padding[0] + options.borderWidth;
         const float y = top + options.padding[1] + options.borderWidth;

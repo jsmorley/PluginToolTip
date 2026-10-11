@@ -6,6 +6,10 @@ the `[Rainmeter]` section.
 The plugin draws customizable rectangle and balloon tooltips using Rainmeter's bundled
 DirectWrite text formatter, including its inline formatting and PCRE pattern engine.
 
+Version **2.0.0.0** adds Linear, Curved, Concave, and Bulged border bevel profiles,
+with fractional bevel widths, adjustable relief, smoothness, and light direction.
+The default settings preserve the original raised and sunken bevel appearance.
+
 ## Basic use
 
 ```ini
@@ -60,6 +64,28 @@ StrokeBevelDarkColor=45,45,45,255
 Use `StrokeBevel=Sunken` to reverse the bevel. The two bevel colors are optional;
 omit them to derive the shading from `StrokeColor`. Fractional stroke sizes scale
 with the skin and are antialiased; very thin outlines produce a subtler bevel.
+
+For a softer rounded border, try:
+
+```ini
+StrokeSize=6.5
+StrokeBevel=Raised
+StrokeBevelProfile=Curved
+StrokeBevelWidth=6.5
+StrokeBevelRelief=0.8
+StrokeBevelSmoothness=0.3
+StrokeBevelLightAngle=225
+```
+
+`Linear` preserves the original flat bevel. `Curved` softens the shading toward
+the stroke center, `Concave` creates a recessed groove, and `Bulged` creates a
+ridge with opposite slopes. These profiles shade contour bands across the border,
+including rounded balloon corners and tails. Wider strokes make the profiles more
+visible. Raised/Sunken reverses each profile's lighting.
+
+These controls are inspired by Microsoft's [BevelBitmapEffect](https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.effects.bevelbitmapeffect).
+They are native Direct2D border effects with their own rendering and defaults;
+they do not apply a bitmap bevel to the tooltip background, text, or icons.
 
 ## Commands and measure values
 
@@ -143,6 +169,11 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` uses a light top/left and dark bottom/right border; `Sunken` reverses them. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
 | `StrokeBevelLightColor` | derived from StrokeColor | Bevel highlight color. Defaults to StrokeColor blended 45% toward white, preserving its alpha. |
 | `StrokeBevelDarkColor` | derived from StrokeColor | Bevel shadow color. Defaults to StrokeColor blended 45% toward black, preserving its alpha. |
+| `StrokeBevelProfile` | `Linear` | `Linear`, `Curved`, `Concave`, or `Bulged`. Case-insensitive; invalid values log a warning and use Linear. |
+| `StrokeBevelWidth` | StrokeSize | Width of the shaded band, centered within the outline, in skin units. Supports fractions and is clamped to 0–StrokeSize. The remainder uses StrokeColor; 0 gives a flat outline. |
+| `StrokeBevelRelief` | `1` | Shading strength from 0 to 1; 0 gives a flat StrokeColor outline, 1 uses the full highlight/shadow colors. |
+| `StrokeBevelSmoothness` | `0` | Highlight-to-shadow transition softness from 0 (sharp join) to 1 (broad blend). |
+| `StrokeBevelLightAngle` | `225` | Light source direction in degrees clockwise: 0 right, 90 bottom, 180 left, 270 top. 225 lights the top/left. Angles wrap every 360 degrees. |
 | `W`, `H` | automatic | Fixed text content width/height. Padding, title/icon row, stroke and tail are added outside the text content. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
 | `Title` | empty | Optional heading using the selected font face/size in bold. |
