@@ -15,11 +15,12 @@ std::vector<Gfx::TextInlineRange> MatchRanges(const std::wstring& text, const st
 
 struct Options {
     void* rm = nullptr;
-    std::wstring text, title, face, style, align, effect, position, icon, stringCase, strokeBevel;
+    std::wstring text, title, face, style, align, effect, position, icon, stringCase, strokeBevel, tailPosition;
     D2D1_COLOR_F background{}, background2{}, font{}, effectColor{}, border{}, bevelLight{}, bevelDark{};
     float size = 10, width = 0, height = 0, clipW = 0, clipH = 0;
     float padding[4] = {8, 6, 8, 6};
     float borderWidth = 1, radius = 6, gradientAngle = 0, offsetX = 0, offsetY = 20;
+    float tailGap = -1; // Unset: retain OffsetY's existing scaled gap.
     std::wstring bevelProfile;
     float bevelWidth = 1, bevelRelief = 1, bevelSmoothness = 0, bevelAngle = 225;
     int weight = 400, clip = 2, initialDelay = 500, reshowDelay = 100, autoPopDelay = 5000;

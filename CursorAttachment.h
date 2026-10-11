@@ -2,7 +2,7 @@
 #include "vendor/StdAfx.h"
 
 namespace ToolTip {
-struct CursorEdges { POINT top{}, bottom{}; };
+struct CursorEdges { POINT top{}, bottom{}; RECT bounds{}; };
 
 // Offsets from the cursor hotspot to its visible top/bottom edges. Rendering
 // against two backgrounds handles alpha, masked and monochrome cursors without
@@ -45,6 +45,14 @@ inline CursorEdges GetCursorEdges(HCURSOR cursor) {
                 LONG x = (left + right) / 2 - static_cast<LONG>(icon.xHotspot);
                 if (!found) edges.top = {x, y - static_cast<LONG>(icon.yHotspot)};
                 edges.bottom = {x, y + 1 - static_cast<LONG>(icon.yHotspot)};
+                LONG visibleLeft = left - static_cast<LONG>(icon.xHotspot);
+                LONG visibleRight = right + 1 - static_cast<LONG>(icon.xHotspot);
+                if (!found) edges.bounds = {visibleLeft, edges.top.y, visibleRight, edges.bottom.y};
+                else {
+                    edges.bounds.left = std::min(edges.bounds.left, visibleLeft);
+                    edges.bounds.right = std::max(edges.bounds.right, visibleRight);
+                    edges.bounds.bottom = edges.bottom.y;
+                }
                 found = true;
             }
         }

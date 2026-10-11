@@ -176,6 +176,8 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
 | `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). The header reserves this space. SVGs are rasterized at these dimensions multiplied by the skin scale. |
 | `Balloon` | `0` | `1` adds rounded balloon corners and a tail. `0` draws a square rectangle. |
+| `TailPosition` | `Center` | `Left` places the tail just left of the visible cursor, `Center` directly beneath it, and `Right` just right of it. Applies to mouse-anchored balloons in Auto/Below/Above positions. Case-insensitive; invalid values use Center. |
+| `TailGap` | unset | Gap in physical screen pixels from the cursor's visible bottom to the popup's tail edge when below (top edge when above). Overrides OffsetY for vertical balloon placement. 0 touches the edge; values are rounded to whole pixels and clamped to 0–8192. Unset preserves OffsetY. Explicit Show x y uses the supplied point instead of cursor bounds. |
 | `CornerRadius` | `6` | Balloon corner radius. |
 | `CloseButton` | `0` | `1` adds a clickable close button to the formatted heading row. |
 | `FontFace` | `Arial` | Font family. Installed fonts and fonts under `@Resources\Fonts` are supported. |
@@ -291,6 +293,20 @@ For Auto/Below/Above balloon positioning, the body shifts left to align its tail
 with that anchor. Cursor bounds exclude transparent bitmap padding and account for
 the cursor hotspot. Explicit Show x y anchors remain the supplied screen point.
 KeepOnScreen may move the body/tail near a monitor edge.
+
+For a balloon just below and to the right of the cursor:
+
+```ini
+Balloon=1
+Position=Below
+TailPosition=Right
+TailGap=4
+```
+
+Use `TailPosition=Left` for just left of the cursor or `Center` for directly under
+it. TailGap stays in physical pixels regardless of skin scale; OffsetX/OffsetY
+are in scaled skin units. Position=Auto may flip above near a monitor's bottom.
+Tail settings are reread while the tooltip is open, like the other options.
 
 Escape dismisses requested/open tooltips. The plugin also hides tooltips when the owning skin
 is hidden/minimized. Popups do not activate or steal focus, and content passes mouse

@@ -231,8 +231,11 @@ struct Measure {
         pixels = {static_cast<LONG>(std::ceil(bodyW * scale)), static_cast<LONG>(std::ceil((bodyH + tail) * scale))};
     }
     POINT Placement(SIZE size) {
+        const bool verticalBalloon = options.balloon &&
+            (options.position == L"auto" || options.position == L"above" || options.position == L"below");
         const auto xOffset = static_cast<LONG>(options.offsetX * scale);
-        const auto yOffset = static_cast<LONG>(options.offsetY * scale);
+        const auto yOffset = verticalBalloon && options.tailGap >= 0 ? static_cast<LONG>(std::round(options.tailGap)) :
+            static_cast<LONG>(options.offsetY * scale);
         POINT below = anchor, above = anchor;
         if (options.balloon && !fixedAnchor) {
             CURSORINFO cursor{sizeof(cursor)};
@@ -240,8 +243,12 @@ struct Measure {
             if (current != measuredCursor) {
                 measuredCursor = current; cursorEdges = ToolTip::GetCursorEdges(current);
             }
-            below.x += cursorEdges.bottom.x; below.y += cursorEdges.bottom.y;
-            above.x += cursorEdges.top.x; above.y += cursorEdges.top.y;
+            const auto& bounds = cursorEdges.bounds;
+            const LONG cursorX = bounds.right > bounds.left ?
+                (options.tailPosition == L"left" ? bounds.left - 1 : options.tailPosition == L"right" ? bounds.right :
+                    (bounds.left + bounds.right - 1) / 2) : 0;
+            below.x += cursorX; below.y += bounds.bottom;
+            above.x += cursorX; above.y += bounds.top;
         }
         attachment = below;
         POINT p{below.x + xOffset, below.y + yOffset};
@@ -255,11 +262,11 @@ struct Measure {
         if (options.position == L"auto" && p.y + size.cy > work.bottom) {
             attachment = above; p = {above.x + xOffset, above.y - size.cy - std::abs(yOffset)};
         }
-        if (options.balloon && (options.position == L"auto" || options.position == L"above" || options.position == L"below")) {
+        if (verticalBalloon) {
             const float inset = options.borderWidth / 2 + 0.5f / scale;
             const float radius = std::min({options.radius, std::max(0.0f, bodyW - 2 * inset) / 2, std::max(0.0f, bodyH - 2 * inset) / 2});
-            // Shift the body so the tail tip can point directly at the cursor
-            // rather than being clamped several pixels to its right.
+            // Align the balloon's tail with the selected cursor-relative point.
+            // Painting still tracks it after screen-edge clamping.
             p.x -= static_cast<LONG>(std::ceil((inset + radius + 9) * scale));
         } else attachment = anchor;
         tailTop = p.y >= anchor.y;
