@@ -32,6 +32,6 @@ struct Options {
     double Number(const wchar_t* key, double fallback) const;
     void Load(void* context);
     std::wstring ResolveText() const;
-    void Configure(Gfx::TextFormat& format, Gfx::FontCollection* fonts, const std::wstring& resolved) const;
+    void Configure(Gfx::TextFormat& format, Gfx::FontCollection* fonts, const std::wstring& resolved, bool heading = false) const;
 };
 }

@@ -172,7 +172,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `StrokeBevelLightAngle` | `225` | Light source direction in degrees clockwise: 0 right, 90 bottom, 180 left, 270 top. 225 lights the top/left. Angles wrap every 360 degrees. |
 | `W`, `H` | automatic | Fixed text content width/height. Padding, title/icon row, stroke and tail are added outside the text content. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
-| `Title` | empty | Optional heading using the selected font face/size in bold. |
+| `Title` | empty | Optional heading using the selected font face/size in bold, with matching inline formatting applied. |
 | `TitleColor` | `FontColor` | Heading color, separate from the body text. Supports the same RGB/RGBA and hex formats as other colors, including a leading `#`. Unset or invalid values use the current FontColor. Updated while open. |
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
 | `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). The header reserves this space. SVGs are rasterized at these dimensions multiplied by the skin scale. |
@@ -249,7 +249,27 @@ SVG documents are limited to 16 MiB.
 Use consecutive `InlineSetting`, `InlineSetting2`, etc., with matching `InlinePattern` options.
 An omitted pattern defaults to `.*`. PCRE matching, lookarounds, Unicode, and capture groups are
 supported. Captures receive the formatting when the pattern contains captures; otherwise the
-whole match receives it. Patterns apply after bound values, prefix/postfix and StringCase.
+whole match receives it. Each pattern is matched independently against `Title` and `Text`;
+a rule can format either or both, depending on which values match. Text patterns apply after
+bound values, prefix/postfix and StringCase. Title patterns use the current resolved `Title`.
+Both are refreshed on each skin update while the tooltip is open. Inline font sizes and other
+layout settings also affect the space reserved for the heading.
+
+`TitleColor` remains the heading's base color; matching inline `Color` or `GradientColor`
+settings override it for their matched ranges. For example:
+
+```ini
+Title=System status
+Text=CPU: [MeasureCPU]%
+TitleColor=#FFFFFF
+InlineSetting=GradientColor | 180 | #FF6699 ; 0 | #66CCFF ; 1
+InlinePattern=^System status$
+InlineSetting2=Color | #66FF99
+InlinePattern2=CPU: (\d+)%
+```
+
+The first rule gives the title a gradient, and the second colors the numeric CPU value in
+the body. A pattern such as `.*` applies to both values; patterns cannot span across them.
 
 Supported settings follow the Rainmeter String meter syntax:
 

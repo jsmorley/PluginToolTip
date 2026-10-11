@@ -258,15 +258,18 @@ std::wstring Options::ResolveText() const {
     if (stringCase == L"proper") StringUtil::ToProperCase(result.data(), result.size());
     return result;
 }
-void Options::Configure(Gfx::TextFormat& format, Gfx::FontCollection* fonts, const std::wstring& resolved) const {
-    format.SetProperties(face.c_str(), size, style.find(L"bold") != style.npos, style.find(L"italic") != style.npos, fonts);
-    format.SetFontWeight(weight);
-    format.SetTrimming(clip != 0, clip != 0);
-    using H = Gfx::HorizontalAlignment; using V = Gfx::VerticalAlignment;
-    format.SetHorizontalAlignment(align.find(L"right") == 0 ? H::Right : align.find(L"center") == 0 ? H::Center :
-        align.find(L"justify") == 0 ? H::Justify : H::Left);
-    format.SetVerticalAlignment(align.find(L"bottom") != align.npos ? V::Bottom :
-        (align.size() > 6 && align.substr(align.size() - 6) == L"center") ? V::Center : V::Top);
+void Options::Configure(Gfx::TextFormat& format, Gfx::FontCollection* fonts, const std::wstring& resolved, bool heading) const {
+    format.SetProperties(face.c_str(), size, heading || style.find(L"bold") != style.npos,
+        !heading && style.find(L"italic") != style.npos, fonts);
+    if (!heading) {
+        format.SetFontWeight(weight);
+        format.SetTrimming(clip != 0, clip != 0);
+        using H = Gfx::HorizontalAlignment; using V = Gfx::VerticalAlignment;
+        format.SetHorizontalAlignment(align.find(L"right") == 0 ? H::Right : align.find(L"center") == 0 ? H::Center :
+            align.find(L"justify") == 0 ? H::Justify : H::Left);
+        format.SetVerticalAlignment(align.find(L"bottom") != align.npos ? V::Bottom :
+            (align.size() > 6 && align.substr(align.size() - 6) == L"center") ? V::Center : V::Top);
+    }
     format.SetInlineOptions(inlines);
     std::vector<std::vector<Gfx::TextInlineRange>> ranges;
     for (const auto& option : inlines) ranges.push_back(MatchRanges(resolved, option.pattern.empty() ? L".*" : option.pattern, rm));

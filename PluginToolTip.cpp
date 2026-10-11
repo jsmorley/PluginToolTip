@@ -216,7 +216,7 @@ struct Measure {
         format = std::make_unique<Gfx::TextFormat>();
         titleFormat = std::make_unique<Gfx::TextFormat>();
         options.Configure(*format, fonts.get(), text);
-        titleFormat->SetProperties(options.face.c_str(), options.size, true, false, fonts.get());
+        options.Configure(*titleFormat, fonts.get(), options.title, true);
         auto maxW = options.width > 0 ? options.width : options.clip == 2 && options.clipW > 0 ? options.clipW : 8192;
         auto size = Gfx::Canvas::Measure(text, *format, maxW, true);
         float w = options.width > 0 ? options.width : std::min(size.width + 1, maxW);
@@ -437,7 +437,7 @@ struct Measure {
         }
         if (headerH > 0) {
             Gfx::Canvas::Draw(target.Get(), options.title, *titleFormat,
-                D2D1::RectF(x + (icon ? iconW + 6 : 0), y, bodyW - options.padding[2] - (options.close ? 24 : 0), y + headerH), options.titleColor, false, true);
+                D2D1::RectF(x + (icon ? iconW + 6 : 0), y, bodyW - options.padding[2] - (options.close ? 24 : 0), y + headerH), options.titleColor, true, true);
             if (options.close) {
                 ComPtr<ID2D1SolidColorBrush> closeBrush; target->CreateSolidColorBrush(options.font, closeBrush.GetAddressOf());
                 const float cx = bodyW - options.padding[2] - options.borderWidth - 10;
