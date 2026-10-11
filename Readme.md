@@ -117,7 +117,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `SolidColor` | `255,255,225,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
+| `SolidColor` | `255,255,255,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
 | `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
 | `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
 | `StrokeSize` | `1` | Outer outline width, including the balloon tail; `0` disables the outline. |

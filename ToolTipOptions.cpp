@@ -137,7 +137,7 @@ void Options::Load(void* context) {
     auto dimension = [&](const wchar_t* key) { return static_cast<float>(std::clamp(Number(key, 0), 0.0, 8192.0)); };
     width = dimension(L"W"); height = dimension(L"H"); clipW = dimension(L"ClipStringW"); clipH = dimension(L"ClipStringH");
     clip = static_cast<int>(std::clamp(Number(L"ClipString", 2), 0.0, 2.0));
-    background = Color(Read(L"SolidColor", L"255,255,225,255"), D2D1::ColorF(0xffffe1));
+    background = Color(Read(L"SolidColor", L"255,255,255,255"), D2D1::ColorF(0xffffff));
     auto second = Read(L"SolidColor2"); backgroundGradient = !second.empty(); background2 = Color(second, background);
     gradientAngle = static_cast<float>(Number(L"GradientAngle", 0));
     font = Color(Read(L"FontColor", L"0,0,0,255"), D2D1::ColorF(0));
