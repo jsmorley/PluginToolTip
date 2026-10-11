@@ -30,7 +30,7 @@ static float Value(const std::wstring& s, float fallback = 0) {
     return end != s.c_str() && *end == 0 && std::isfinite(n) ? static_cast<float>(n) : fallback;
 }
 D2D1_COLOR_F Color(const std::wstring& input, D2D1_COLOR_F fallback) {
-    const auto s = Trim(input);
+    auto s = Trim(input);
     const auto parts = Split(s, L',');
     if (parts.size() >= 3 && parts.size() <= 4) {
         float c[4] = {0, 0, 0, 255};
@@ -38,6 +38,7 @@ D2D1_COLOR_F Color(const std::wstring& input, D2D1_COLOR_F fallback) {
         if (parts.size() == 3) c[3] = 1;
         return D2D1::ColorF(c[0], c[1], c[2], c[3]);
     }
+    if (!s.empty() && s.front() == L'#') s.erase(0, 1);
     if ((s.size() == 6 || s.size() == 8) && s.find_first_not_of(L"0123456789abcdefABCDEF") == s.npos) {
         auto n = wcstoul(s.c_str(), nullptr, 16);
         if (s.size() == 6) return D2D1::ColorF(n, 1);

@@ -112,6 +112,10 @@ timers and do not require frequent skin updates. Redraws do not restart the time
 ## Appearance
 
 Color options accept `R,G,B`, `R,G,B,A`, six-digit `RRGGBB`, or eight-digit `RRGGBBAA` hex values.
+Hex colors may also have a leading `#`, for example `#ffffff` or `#00000080`.
+
+For a white-to-black background gradient, set `SolidColor=#ffffff`,
+`SolidColor2=#000000`, and optionally `GradientAngle=90` for top to bottom.
 Lengths below are skin units; the plugin uses the skin's effective DPI/zoom scale when supported
 by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen pixels.
 
