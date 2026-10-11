@@ -156,8 +156,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 
 The tooltip is a separate popup rather than a meter. Its W/H describe the content box and
 StringAlign describes alignment inside that box. General meter placement, transformations,
-containers, meter actions, and meter groups are not tooltip layout options. Angled text and
-shadows can extend outside the calculated layout; provide sufficient padding/size.
+containers, meter actions, and meter groups are not tooltip layout options. Shadows can extend outside the calculated layout; provide sufficient padding/size.
 
 ## SVG icons
 
