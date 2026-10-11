@@ -821,7 +821,7 @@ void TextFormat::ApplyInlineFace(IDWriteTextLayout* layout, const std::vector<DW
 			HRESULT hr = m_FontCollection->m_Collection->FindFamilyName(setting.face.c_str(), &index, &exists);
 			if (SUCCEEDED(hr))
 			{
-				// Use the custom font collection (LocalFont, @Resources\Fonts) when it has the font,
+				// Use the custom font collection (@Resources\Fonts) when it has the font,
 				// and the system collection when it does not.
 				layout->SetFontCollection(exists ?
 					m_FontCollection->m_Collection : m_FontCollection->c_SystemCollection.Get(), range);

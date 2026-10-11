@@ -135,7 +135,6 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `CornerRadius` | `6` | Balloon corner radius. |
 | `CloseButton` | `0` | `1` adds a clickable close button to the formatted heading row. |
 | `FontFace` | `Arial` | Font family. Installed fonts and fonts under `@Resources\Fonts` are supported. |
-| `LocalFont`, `LocalFont2`, ... | unset | Additional skin-relative font files loaded when Show opens the tooltip. |
 | `FontSize` | `10` | Font size in points, including fractional sizes. |
 | `FontColor` | `0,0,0,255` | Text color, independent of the entire tooltip background. |
 | `FontWeight` | `400` or `700` for bold StringStyle | Weight from 1 to 999. |
@@ -222,7 +221,7 @@ Supported settings follow the Rainmeter String meter syntax:
 Inline gradients apply separately on each line; GradientColor1 selects the alternative gamma.
 Font features and stretch depend on what the font supports. PCRE work is limited per pattern
 to prevent an expensive expression from indefinitely blocking the skin. Invalid patterns are
-logged and skipped. Up to 256 bindings, inline settings, and local fonts are supported per instance.
+logged and skipped. Up to 256 bindings and inline settings are supported per instance.
 
 ## Behavior and positioning
 

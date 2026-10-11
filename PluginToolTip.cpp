@@ -214,13 +214,6 @@ struct Measure {
                 if (ext == L".ttf" || ext == L".otf" || ext == L".ttc") fonts->AddFile(entry.path().c_str());
             }
         }
-        for (int i = 1; i <= 256; ++i) {
-            const auto key = L"LocalFont" + (i == 1 ? std::wstring() : std::to_wstring(i));
-            auto path = options.Read(key.c_str());
-            if (path.empty()) break;
-            std::wstring absolute = RmPathToAbsolute(rm, path.c_str());
-            fonts->AddFile(absolute.c_str());
-        }
     }
     void Layout() {
         format = std::make_unique<Gfx::TextFormat>();
