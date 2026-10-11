@@ -6,10 +6,6 @@ the `[Rainmeter]` section.
 The plugin draws customizable rectangle and balloon tooltips using Rainmeter's bundled
 DirectWrite text formatter, including its inline formatting and PCRE pattern engine.
 
-Version **2.0.0.0** adds Linear, Curved, Concave, and Bulged border bevel profiles,
-with fractional bevel widths, adjustable relief, smoothness, and light direction.
-The default settings preserve the original raised and sunken bevel appearance.
-
 ## Basic use
 
 ```ini
