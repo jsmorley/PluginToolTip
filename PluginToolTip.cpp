@@ -37,6 +37,7 @@ struct Measure {
     bool comOwned = false, lastLeft = false, lastRight = false;
     ULONGLONG due = 0, shownAt = 0, hiddenAt = 0;
     POINT anchor{}, origin{}, attachment{};
+    D2D1_POINT_2F skinAnchor{};
     HCURSOR measuredCursor = nullptr;
     ToolTip::CursorEdges cursorEdges;
     SIZE pixels{};
@@ -80,9 +81,29 @@ struct Measure {
         if (iconOwned && icon) DestroyIcon(icon);
         icon = nullptr; iconOwned = false;
     }
+    float ReadScale() const {
+        // API 2 already includes Windows DPI and Rainmeter zoom. Do not apply
+        // Windows DPI a second time. Older hosts need a window-DPI fallback.
+        const auto* effective = static_cast<const float*>(RmGet(rm, RMG_SKINSCALE));
+        float value = effective ? *effective : 0;
+        if (!std::isfinite(value) || value <= 0) {
+            using GetDpi = UINT(WINAPI*)(HWND);
+            static const auto getDpi = reinterpret_cast<GetDpi>(GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetDpiForWindow"));
+            const UINT dpi = getDpi ? getDpi(skin) : 0;
+            value = dpi ? dpi / 96.0f : 1.0f;
+        }
+        return std::clamp(value, 0.25f, 8.0f);
+    }
+    POINT SkinAnchor(float effectiveScale) const {
+        POINT point{};
+        ClientToScreen(skin, &point);
+        point.x += static_cast<LONG>(std::round(skinAnchor.x * effectiveScale));
+        point.y += static_cast<LONG>(std::round(skinAnchor.y * effectiveScale));
+        return point;
+    }
     void Load() {
         options.Load(rm);
-        scale = std::clamp(RmGetSkinScale(rm), 0.25f, 8.0f);
+        scale = ReadScale();
     }
     void Hide() {
         if (requested || visible) hiddenAt = GetTickCount64();
@@ -383,6 +404,12 @@ struct Measure {
             options.closeButtonY.value_or((tailTop ? tail : 0) + options.padding[1]));
     }
     bool Paint(BYTE opacity = 255) {
+        const float currentScale = ReadScale();
+        if (currentScale != scale) {
+            scale = currentScale;
+            ReadIcon();
+        }
+        if (fixedAnchor) anchor = SkinAnchor(scale);
         if (!Graphics()) return false;
         Layout();
         origin = Placement(pixels);
@@ -528,10 +555,11 @@ struct Measure {
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
         return ok;
     }
-    void Show(bool fixed, POINT point) {
+    void Show(bool fixed, POINT point, D2D1_POINT_2F relative = {}) {
         Hide(); Load();
         if (!window || !options.enabled || !IsWindowVisible(skin)) return;
-        fixedAnchor = fixed; anchor = point;
+        fixedAnchor = fixed; skinAnchor = relative;
+        anchor = fixed ? SkinAnchor(scale) : point;
         requested = true;
         const auto now = GetTickCount64();
         const bool reshow = hiddenAt && now - hiddenAt < 1000;
@@ -561,6 +589,11 @@ struct Measure {
         if (!visible && now >= due) Display();
         if (!visible) return;
         if (options.autoPopDelay && now - shownAt >= static_cast<ULONGLONG>(options.autoPopDelay)) { Hide(); return; }
+        const float currentScale = ReadScale();
+        const POINT currentAnchor = fixedAnchor ? SkinAnchor(currentScale) : anchor;
+        if (currentScale != scale || currentAnchor.x != anchor.x || currentAnchor.y != anchor.y) {
+            Paint();
+        }
         if (options.follow && !fixedAnchor) {
             POINT p{}; GetCursorPos(&p);
             if (p.x != anchor.x || p.y != anchor.y) {
@@ -620,6 +653,14 @@ PLUGIN_EXPORT double Update(void* data) {
     return m->visible ? 1.0 : 0.0;
 }
 PLUGIN_EXPORT LPCWSTR GetString(void* data) { return static_cast<Measure*>(data)->text.c_str(); }
+// Rainmeter uses this export to identify DPI-aware plugins. Without it,
+// W/H/FontSize are pre-scaled by the host and then scaled a second time here.
+PLUGIN_EXPORT void HandleSkinSettingChange(void* data, void* rm, RmSkinSettingChange setting) {
+    if (setting != RmSkinSettingChange::Scale) return;
+    auto m = static_cast<Measure*>(data);
+    m->rm = rm;
+    if (m->visible) m->UpdateOpen(); else m->Load();
+}
 PLUGIN_EXPORT void ExecuteBang(void* data, LPCWSTR args) {
     auto m = static_cast<Measure*>(data);
     std::wistringstream input(args ? args : L""); std::wstring command; input >> command;
@@ -630,14 +671,15 @@ PLUGIN_EXPORT void ExecuteBang(void* data, LPCWSTR args) {
         POINT p{}; GetCursorPos(&p);
         input >> std::ws;
         bool fixed = !input.eof();
+        D2D1_POINT_2F relative{};
         if (fixed) {
             double x, y;
             if (!(input >> x >> y) || !std::isfinite(x) || !std::isfinite(y) || std::abs(x) > 100000 || std::abs(y) > 100000) {
-                RmLog(m->rm, LOG_WARNING, L"ToolTip: Show expects zero arguments or two screen coordinates"); return;
+                RmLog(m->rm, LOG_WARNING, L"ToolTip: Show expects zero arguments or two skin-relative coordinates"); return;
             }
-            p = {static_cast<LONG>(x), static_cast<LONG>(y)};
+            relative = D2D1::Point2F(static_cast<float>(x), static_cast<float>(y));
         }
-        m->Show(fixed, p);
+        m->Show(fixed, p, relative);
     } else if (command == L"update") m->UpdateOpen();
     else RmLog(m->rm, LOG_WARNING, L"ToolTip: unknown command (Show, Hide, Toggle, Update)");
 }

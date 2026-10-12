@@ -88,7 +88,7 @@ they do not apply a bitmap bevel to the tooltip background, text, or icons.
 | [SP]20[/SP]Command[SP]20[/SP] | Result |
 | --- | --- |
 | `Show` | Opens at the mouse position after the configured delay. |
-| `Show x y` | Opens using an explicit anchor in physical desktop/screen pixels; negative coordinates are supported. |
+| `Show x y` | Opens using an anchor relative to the skin's upper-left corner, in skin units. Coordinates scale with Windows DPI and Rainmeter zoom; negative and fractional values are supported. |
 | `Hide` or `Dismiss` | Immediately closes this instance and cancels a pending display. |
 | `Toggle` or `Toggle x y` | Closes this instance if requested/open; otherwise behaves like Show. |
 | `Update` | Resolves the current options/text and redraws this instance immediately if open. |
@@ -153,7 +153,13 @@ Hex colors may also have a leading `#`, for example `#ffffff` or `#00000080`.
 For a white-to-black background gradient, set `SolidColor=#ffffff`,
 `SolidColor2=#000000`, and optionally `GradientAngle=90` for top to bottom.
 Lengths below are skin units; the plugin uses the skin's effective DPI/zoom scale when supported
-by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen pixels.
+by the Rainmeter API, including Windows display scaling and Rainmeter zoom exactly once.
+The plugin exports HandleSkinSettingChange to declare DPI awareness to Rainmeter, preventing
+the host from pre-scaling W, H and FontSize before the plugin scales them for rendering.
+On older hosts without the effective-scale API, the plugin uses the skin window's Windows DPI.
+Open tooltips detect scale changes, resize their rendering buffers, and rerasterize icons without
+waiting for a measure update. `Show x y` coordinates are relative to the skin's upper-left
+corner in these same scaled skin units. They follow the skin when it moves or changes scale.
 
 | [SP]20[/SP]Option[SP]20[/SP] | Default | Meaning |
 | --- | --- | --- |
@@ -288,8 +294,8 @@ gradient's angle convention remains unchanged.
 
 Plain title, text and close-button coordinates accept formulas and fractional values and scale
 with the skin. They are absolute within the entire tooltip window, including the tail area when a balloon's
-tail is on top. Changing coordinates moves the item without changing the normal header/body
-layout or automatically expanding the window; use padding, W/H or font sizes to reserve space.
+tail is on top. Moving the body text adjusts the tooltip dimensions to include its right and bottom
+edges and padding. Title and close-button coordinates do not independently expand the window.
 The text layout retains its original width and height, wrapping, alignment and clipping settings
 when moved. The close button's clickable area follows its new position. All six coordinates update while
 the tooltip is open. For example:
@@ -378,18 +384,18 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute. Auto starts below and flips above near the monitor's bottom. |
 | `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in skin units. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
-| `FollowMouse` | `0` | 1 follows the cursor while open. Explicit Show x y remains fixed. |
+| `FollowMouse` | `0` | 1 follows the cursor while open. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
 | `Topmost` | `1` | 1 keeps the tooltip above other windows without activating it. |
 | `DismissOnClick` | `1` | A new left/right mouse press dismisses requested/open tooltips. |
 | `NoFade` | `0` | 1 disables fade-in. |
 
-With Position=Absolute, Show x y gives the popup's top-left screen position. With plain Show,
+With Position=Absolute, Show x y gives the popup's top-left position relative to the skin. With plain Show,
 OffsetX/OffsetY are the absolute top-left coordinates, scaled from skin units. Other positions
 treat Show x y as an anchor. Balloons point their tail toward the anchor vertically.
 For Auto/Below/Above balloon positioning, the body shifts left to align its tail
 with that anchor. Cursor bounds exclude transparent bitmap padding and account for
-the cursor hotspot. Explicit Show x y anchors remain the supplied screen point.
+the cursor hotspot. Explicit Show x y anchors use the supplied skin-relative point.
 KeepOnScreen may move the body/tail near a monitor edge.
 
 For a balloon just below and to the right of the cursor:
