@@ -24,7 +24,7 @@ struct TextCoordinate {
 
 struct Options {
     void* rm = nullptr;
-    std::wstring text, title, face, style, align, effect, position, icon, stringCase, strokeBevel, tailPosition;
+    std::wstring text, title, face, style, align, effect, position, horizontalPosition, icon, stringCase, strokeBevel, tailPosition;
     D2D1_COLOR_F background{}, background2{}, font{}, titleColor{}, effectColor{}, border{}, bevelLight{}, bevelDark{};
     float size = 10, width = 0, height = 0, clipW = 0, clipH = 0;
     float padding[4] = {8, 6, 8, 6};

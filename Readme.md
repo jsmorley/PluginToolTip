@@ -381,7 +381,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `InitialDelay` | `0` | First display delay in milliseconds; default opens immediately. |
 | `ReshowDelay` | `100` | Delay when reopened within one second of its last hide. |
 | `AutoPopDelay` | `5000` | Visible timeout in milliseconds; 0 keeps it open until Hide or dismissal. |
-| `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute. Auto starts below and flips above near the monitor's bottom. |
+| `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute, or a pair: Below \| Left, Below \| Right, Above \| Left, Above \| Right. Auto starts below and flips above near the monitor's bottom. Pairs select both vertical and horizontal placement relative to the anchor. |
 | `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in skin units. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
 | `FollowMouse` | `0` | 1 follows the cursor while open. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
@@ -397,6 +397,17 @@ For Auto/Below/Above balloon positioning, the body shifts left to align its tail
 with that anchor. Cursor bounds exclude transparent bitmap padding and account for
 the cursor hotspot. Explicit Show x y anchors use the supplied skin-relative point.
 KeepOnScreen may move the body/tail near a monitor edge.
+
+For example, `Position=Below | Left` places the tooltip below and to the left of the
+anchor, while `Position=Above | Right` places it above and to the right. Spaces around
+the pipe are optional and values are case-insensitive. Rectangle tooltips place their
+entire width on the selected side, with the absolute OffsetX as the horizontal gap.
+Balloons place the body on the selected side with their tail aligned to the anchor;
+the tail and rounded corner leave a small portion of the window across the anchor.
+For pairs, the absolute OffsetX moves the body farther toward the selected side.
+OffsetY/TailGap retain their usual vertical behavior. Explicit Above/Below pairs do
+not automatically flip; KeepOnScreen can still clamp them to the monitor's work area.
+Invalid pairs log a warning and fall back to Auto.
 
 For a balloon just below and to the right of the cursor:
 

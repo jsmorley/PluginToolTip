@@ -312,8 +312,17 @@ struct Measure {
             const float radius = std::min({options.radius, std::max(0.0f, bodyW - 2 * inset) / 2, std::max(0.0f, bodyH - 2 * inset) / 2});
             // Align the balloon's tail with the selected cursor-relative point.
             // Painting still tracks it after screen-edge clamping.
-            p.x -= static_cast<LONG>(std::ceil((inset + radius + 9) * scale));
+            const auto tailInset = static_cast<LONG>(std::ceil((inset + radius + 9) * scale));
+            if (options.horizontalPosition == L"left") {
+                p.x = attachment.x - size.cx + tailInset - std::abs(xOffset);
+            } else if (options.horizontalPosition == L"right") {
+                p.x = attachment.x - tailInset + std::abs(xOffset);
+            } else p.x -= tailInset;
         } else attachment = anchor;
+        if (!verticalBalloon && !options.horizontalPosition.empty()) {
+            p.x = options.horizontalPosition == L"left" ? anchor.x - size.cx - std::abs(xOffset) :
+                anchor.x + std::abs(xOffset);
+        }
         tailTop = p.y >= anchor.y;
         if (options.keepOnScreen) {
             p.x = std::clamp(p.x, work.left, std::max(work.left, work.right - size.cx));

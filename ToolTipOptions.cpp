@@ -160,7 +160,18 @@ void Options::Load(void* context) {
     text = Read(L"Text"); title = Read(L"Title"); face = Read(L"FontFace", L"Arial");
     style = Lower(Read(L"StringStyle", L"Normal")); align = Lower(Read(L"StringAlign", L"Left"));
     effect = Lower(Read(L"StringEffect", L"None")); stringCase = Lower(Read(L"StringCase", L"None"));
-    position = Lower(Read(L"Position", L"Auto")); icon = Read(L"Icon", L"None");
+    const auto positionParts = Split(Lower(Read(L"Position", L"Auto")), L'|');
+    position = positionParts[0]; horizontalPosition.clear();
+    if (positionParts.size() > 1) {
+        if (positionParts.size() == 2 && (position == L"below" || position == L"above") &&
+            (positionParts[1] == L"left" || positionParts[1] == L"right")) {
+            horizontalPosition = positionParts[1];
+        } else {
+            RmLog(rm, LOG_WARNING, L"ToolTip: invalid Position pair (use Below/Above | Left/Right)");
+            position = L"auto";
+        }
+    }
+    icon = Read(L"Icon", L"None");
     size = static_cast<float>(std::clamp(Number(L"FontSize", 10), 0.1, 1000.0));
     titleFontSize = static_cast<float>(std::clamp(Number(L"TitleFontSize", size), 0.1, 1000.0));
     weight = static_cast<int>(std::clamp(Number(L"FontWeight", style.find(L"bold") != style.npos ? 700 : 400), 1.0, 999.0));
