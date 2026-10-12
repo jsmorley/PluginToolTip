@@ -9,8 +9,6 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <commctrl.h>
-#pragma comment(lib, "comctl32.lib")
 
 using Microsoft::WRL::ComPtr;
 namespace {
@@ -29,7 +27,6 @@ struct GraphicsResources {
 } GraphicsPool;
 struct Measure;
 LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK SkinSubclassProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
 
 void KeepAboveSkin(HWND window, HWND skin) {
     if (!IsWindow(window) || !IsWindow(skin) || !IsWindowVisible(window)) return;
@@ -85,13 +82,10 @@ struct Measure {
         window = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
             WindowClass, L"ToolTip", WS_POPUP, 0, 0, 1, 1, skin, nullptr, Module, this);
         if (!window) RmLog(rm, LOG_ERROR, L"ToolTip: could not create tooltip window");
-        else if (!SetWindowSubclass(skin, SkinSubclassProc, reinterpret_cast<UINT_PTR>(this), reinterpret_cast<DWORD_PTR>(window)))
-            RmLog(rm, LOG_WARNING, L"ToolTip: skin window-order hook unavailable; using timer safeguard");
         if (!Gfx::Canvas::Initialize()) RmLog(rm, LOG_ERROR, L"ToolTip: DirectWrite initialization failed");
         Load();
     }
     ~Measure() {
-        if (IsWindow(skin)) RemoveWindowSubclass(skin, SkinSubclassProc, reinterpret_cast<UINT_PTR>(this));
         Hide();
         if (window) DestroyWindow(window);
         if (--Instances == 0) {
@@ -669,14 +663,9 @@ struct Measure {
         return x >= button.x && x <= button.x + 22 && y >= button.y && y <= button.y + 22;
     }
 };
-LRESULT CALLBACK SkinSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR data) {
-    const HWND tooltip = reinterpret_cast<HWND>(data);
-    if (msg == WM_NCDESTROY) RemoveWindowSubclass(hwnd, SkinSubclassProc, id);
-    const LRESULT result = DefSubclassProc(hwnd, msg, wp, lp);
-    // Store only HWNDs across the host callback: it can unload the measure.
-    if (msg == WM_WINDOWPOSCHANGED) KeepAboveSkin(tooltip, hwnd);
-    return result;
-}
+// Do not subclass the skin: Rainmeter can finalize measures and FreeLibrary
+// from its window procedure, invalidating a plugin callback still on the stack.
+// The owned tooltip's position notifications and open-window timer maintain order.
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto m = reinterpret_cast<Measure*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
     if (msg == WM_NCCREATE) {
