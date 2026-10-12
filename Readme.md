@@ -172,8 +172,10 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `StrokeBevelLightAngle` | `225` | Light source direction in degrees clockwise: 0 right, 90 bottom, 180 left, 270 top. 225 lights the top/left. Angles wrap every 360 degrees. |
 | `W`, `H` | automatic | Fixed text content width/height. Padding, title/icon row, stroke and tail are added outside the text content. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
-| `Title` | empty | Optional heading using the selected font face/size in bold, with matching inline formatting applied. |
+| `Title` | empty | Optional heading using the selected font face and TitleFontSize in bold, with matching inline formatting applied. |
+| `TitleFontSize` | `FontSize` | Base heading font size, independent of the body text. Matching inline Size settings override it. Updated while open, including the space reserved for the heading. |
 | `TitleColor` | `FontColor` | Heading color, separate from the body text. Supports the same RGB/RGBA and hex formats as other colors, including a leading `#`. Unset or invalid values use the current FontColor. Updated while open. |
+| `TitleX`, `TitleY` | automatic | Title text origin measured from the tooltip window's top-left corner, in skin units. Set either axis independently; unset/empty axes retain automatic placement after padding, stroke, icon and any top tail. |
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
 | `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). The header reserves this space. SVGs are rasterized at these dimensions multiplied by the skin scale. |
 | `Balloon` | `0` | `1` adds rounded balloon corners and a tail. `0` draws a square rectangle. |
@@ -181,6 +183,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `TailGap` | unset | Gap in physical screen pixels from the cursor's visible bottom to the popup's tail edge when below (top edge when above). Overrides OffsetY for vertical balloon placement. 0 touches the edge; values are rounded to whole pixels and clamped to 0–8192. Unset preserves OffsetY. Explicit Show x y uses the supplied point instead of cursor bounds. |
 | `CornerRadius` | `6` | Balloon corner radius. |
 | `CloseButton` | `0` | `1` adds a clickable close button to the formatted heading row. |
+| `CloseButtonX`, `CloseButtonY` | automatic | Top-left corner of the close button's 22 by 22 clickable area, measured from the tooltip window's top-left corner in skin units. The X glyph is drawn inside that area. Requires CloseButton=1; unset/empty axes retain automatic placement. |
 | `FontFace` | `Arial` | Font family. Installed fonts and fonts under `@Resources\Fonts` are supported. |
 | `FontSize` | `10` | Font size in points, including fractional sizes. |
 | `FontColor` | `0,0,0,255` | Text color, independent of the entire tooltip background. |
@@ -243,6 +246,22 @@ attributes such as `fill` and `stroke`; scripts, animation, text, CSS stylesheet
 filters and external image references are unsupported. Convert text to paths.
 Invalid/unreadable SVGs log a warning and the tooltip continues without an icon.
 SVG documents are limited to 16 MiB.
+
+Title and close-button coordinates accept formulas and fractional values and scale with the skin.
+They are absolute within the entire tooltip window, including the tail area when a balloon's
+tail is on top. Changing coordinates moves the item without changing the normal header/body
+layout or automatically expanding the window; use padding, W/H or font sizes to reserve space.
+The close button's clickable area follows its new position. All four coordinates update while
+the tooltip is open. For example:
+
+```ini
+TitleFontSize=16
+TitleX=20
+TitleY=24
+CloseButton=1
+CloseButtonX=300
+CloseButtonY=20
+```
 
 ## Inline string formatting
 

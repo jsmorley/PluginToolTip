@@ -353,6 +353,11 @@ struct Measure {
             outer = inner;
         }
     }
+    D2D1_POINT_2F CloseButtonOrigin() const {
+        return D2D1::Point2F(
+            options.closeButtonX.value_or(bodyW - options.padding[2] - options.borderWidth - 22),
+            options.closeButtonY.value_or((tailTop ? tail : 0) + options.padding[1]));
+    }
     bool Paint(BYTE opacity = 255) {
         if (!Graphics()) return false;
         Layout();
@@ -436,14 +441,19 @@ struct Measure {
                 target->DrawBitmap(iconBitmap.Get(), D2D1::RectF(x, y, x + iconW, y + iconH));
         }
         if (headerH > 0) {
+            const float defaultTitleX = x + (icon ? iconW + 6 : 0);
+            const float titleX = options.titleX.value_or(defaultTitleX);
+            const float titleY = options.titleY.value_or(y);
+            const float titleWidth = bodyW - options.padding[2] - (options.close ? 24 : 0) - defaultTitleX;
             Gfx::Canvas::Draw(target.Get(), options.title, *titleFormat,
-                D2D1::RectF(x + (icon ? iconW + 6 : 0), y, bodyW - options.padding[2] - (options.close ? 24 : 0), y + headerH), options.titleColor, true, true);
+                D2D1::RectF(titleX, titleY, titleX + titleWidth, titleY + headerH), options.titleColor, true, true);
             if (options.close) {
                 ComPtr<ID2D1SolidColorBrush> closeBrush; target->CreateSolidColorBrush(options.font, closeBrush.GetAddressOf());
-                const float cx = bodyW - options.padding[2] - options.borderWidth - 10;
+                const auto button = CloseButtonOrigin();
+                const float cx = button.x + 12, cy = button.y + options.borderWidth + 8;
                 if (closeBrush) {
-                    target->DrawLine(D2D1::Point2F(cx - 4, y + 4), D2D1::Point2F(cx + 4, y + 12), closeBrush.Get(), 1.5f);
-                    target->DrawLine(D2D1::Point2F(cx + 4, y + 4), D2D1::Point2F(cx - 4, y + 12), closeBrush.Get(), 1.5f);
+                    target->DrawLine(D2D1::Point2F(cx - 4, cy - 4), D2D1::Point2F(cx + 4, cy + 4), closeBrush.Get(), 1.5f);
+                    target->DrawLine(D2D1::Point2F(cx + 4, cy - 4), D2D1::Point2F(cx - 4, cy + 4), closeBrush.Get(), 1.5f);
                 }
             }
         }
@@ -546,8 +556,9 @@ struct Measure {
         if (!options.close) return false;
         POINT p{static_cast<short>(LOWORD(point)), static_cast<short>(HIWORD(point))};
         ScreenToClient(window, &p);
-        float x = p.x / scale, y = p.y / scale - (tailTop ? tail : 0);
-        return x >= bodyW - options.padding[2] - options.borderWidth - 22 && y >= options.padding[1] && y <= options.padding[1] + 22;
+        float x = p.x / scale, y = p.y / scale;
+        const auto button = CloseButtonOrigin();
+        return x >= button.x && x <= button.x + 22 && y >= button.y && y <= button.y + 22;
     }
 };
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {

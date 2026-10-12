@@ -134,6 +134,7 @@ void Options::Load(void* context) {
     effect = Lower(Read(L"StringEffect", L"None")); stringCase = Lower(Read(L"StringCase", L"None"));
     position = Lower(Read(L"Position", L"Auto")); icon = Read(L"Icon", L"None");
     size = static_cast<float>(std::clamp(Number(L"FontSize", 10), 0.1, 1000.0));
+    titleFontSize = static_cast<float>(std::clamp(Number(L"TitleFontSize", size), 0.1, 1000.0));
     weight = static_cast<int>(std::clamp(Number(L"FontWeight", style.find(L"bold") != style.npos ? 700 : 400), 1.0, 999.0));
     auto dimension = [&](const wchar_t* key) { return static_cast<float>(std::clamp(Number(key, 0), 0.0, 8192.0)); };
     width = dimension(L"W"); height = dimension(L"H"); clipW = dimension(L"ClipStringW"); clipH = dimension(L"ClipStringH");
@@ -143,6 +144,12 @@ void Options::Load(void* context) {
     gradientAngle = static_cast<float>(Number(L"GradientAngle", 0));
     font = Color(Read(L"FontColor", L"0,0,0,255"), D2D1::ColorF(0));
     titleColor = Color(Read(L"TitleColor"), font);
+    auto coordinate = [&](const wchar_t* key) -> std::optional<float> {
+        if (Trim(Read(key)).empty()) return {};
+        return static_cast<float>(std::clamp(Number(key, 0), -8192.0, 8192.0));
+    };
+    titleX = coordinate(L"TitleX"); titleY = coordinate(L"TitleY");
+    closeButtonX = coordinate(L"CloseButtonX"); closeButtonY = coordinate(L"CloseButtonY");
     effectColor = Color(Read(L"FontEffectColor", L"0,0,0,255"), D2D1::ColorF(0));
     border = Color(Read(L"BorderColor", L"110,110,110,255"), D2D1::ColorF(0x6e6e6e));
     borderWidth = static_cast<float>(std::clamp(Number(L"BorderWidth", 1), 0.0, 32.0));
@@ -259,7 +266,7 @@ std::wstring Options::ResolveText() const {
     return result;
 }
 void Options::Configure(Gfx::TextFormat& format, Gfx::FontCollection* fonts, const std::wstring& resolved, bool heading) const {
-    format.SetProperties(face.c_str(), size, heading || style.find(L"bold") != style.npos,
+    format.SetProperties(face.c_str(), heading ? titleFontSize : size, heading || style.find(L"bold") != style.npos,
         !heading && style.find(L"italic") != style.npos, fonts);
     if (!heading) {
         format.SetFontWeight(weight);
