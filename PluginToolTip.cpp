@@ -42,6 +42,7 @@ struct Measure {
     SIZE pixels{};
     float scale = 1, bodyW = 1, bodyH = 1, headerH = 0, tail = 0;
     D2D1_SIZE_F titleSize{};
+    D2D1_SIZE_F textLayoutSize{};
     std::wstring text;
     ToolTip::Options options;
     ComPtr<ID2D1DeviceContext> target;
@@ -213,6 +214,22 @@ struct Measure {
             }
         }
     }
+    D2D1_RECT_F TextRect(float top) const {
+        const float x = options.padding[0] + options.borderWidth;
+        const float y = top + options.padding[1] + options.borderWidth;
+        const float titleX = options.titleX.value_or(x + (icon ? iconW + 6 : 0));
+        const float titleY = options.titleY.value_or(y);
+        auto coordinate = [&](const std::optional<ToolTip::TextCoordinate>& value,
+            float automatic, float titleStart, float titleLength) {
+            if (!value) return automatic;
+            if (!value->relative) return value->offset;
+            if (options.title.empty()) return automatic + value->offset;
+            return titleStart + value->offset + (value->relative == L'R' ? titleLength : 0);
+        };
+        const float left = coordinate(options.textX, x, titleX, titleSize.width);
+        const float textTop = coordinate(options.textY, y + headerH, titleY, titleSize.height);
+        return D2D1::RectF(left, textTop, left + textLayoutSize.width, textTop + textLayoutSize.height);
+    }
     void Layout() {
         format = std::make_unique<Gfx::TextFormat>();
         titleFormat = std::make_unique<Gfx::TextFormat>();
@@ -226,8 +243,14 @@ struct Measure {
         titleSize = Gfx::Canvas::Measure(options.title, *titleFormat, 8192, true);
         headerH = options.title.empty() && !icon && !options.close ? 0 : std::max(titleSize.height + 5, icon ? iconH + 5 : 0.0f);
         float headerW = titleSize.width + (icon ? iconW + 6 : 0) + (options.close ? 24.0f : 0);
-        bodyW = std::clamp(std::max(w, headerW) + options.padding[0] + options.padding[2] + 2 * options.borderWidth, 1.0f, 8192.0f / scale);
-        bodyH = std::clamp(h + headerH + options.padding[1] + options.padding[3] + 2 * options.borderWidth, 1.0f, 8192.0f / scale);
+        textLayoutSize = D2D1::SizeF(std::max(w, headerW), h);
+        // Reserve the positioned layout plus trailing padding/stroke. Measuring
+        // without a top tail also leaves enough room for either tail orientation.
+        const auto textRect = TextRect(0);
+        const float headerWidth = headerW + options.padding[0] + options.padding[2] + 2 * options.borderWidth;
+        const float headerHeight = headerH + options.padding[1] + options.padding[3] + 2 * options.borderWidth;
+        bodyW = std::clamp(std::max(headerWidth, textRect.right + options.padding[2] + options.borderWidth), 1.0f, 8192.0f / scale);
+        bodyH = std::clamp(std::max(headerHeight, textRect.bottom + options.padding[3] + options.borderWidth), 1.0f, 8192.0f / scale);
         tail = options.balloon ? 12.0f : 0;
         pixels = {static_cast<LONG>(std::ceil(bodyW * scale)), static_cast<LONG>(std::ceil((bodyH + tail) * scale))};
     }
@@ -467,19 +490,7 @@ struct Measure {
                 }
             }
         }
-        auto rect = D2D1::RectF(x, y + headerH, bodyW - options.padding[2] - options.borderWidth,
-            top + bodyH - options.padding[3] - options.borderWidth);
-        auto textCoordinate = [&](const std::optional<ToolTip::TextCoordinate>& coordinate,
-            float automatic, float titleStart, float titleLength) {
-            if (!coordinate) return automatic;
-            if (!coordinate->relative) return coordinate->offset;
-            if (options.title.empty()) return automatic + coordinate->offset;
-            return titleStart + coordinate->offset + (coordinate->relative == L'R' ? titleLength : 0);
-        };
-        const float textOffsetX = textCoordinate(options.textX, rect.left, titleX, titleSize.width) - rect.left;
-        const float textOffsetY = textCoordinate(options.textY, rect.top, titleY, titleSize.height) - rect.top;
-        rect.left += textOffsetX; rect.right += textOffsetX;
-        rect.top += textOffsetY; rect.bottom += textOffsetY;
+        const auto rect = TextRect(top);
         if (options.effect == L"shadow" || options.effect == L"border") {
             const int offsets[][2] = {{1, 1}, {-1, 0}, {1, 0}, {0, -1}, {0, 1}};
             for (int i = options.effect == L"shadow" ? 0 : 1; i < (options.effect == L"shadow" ? 1 : 5); ++i) {
