@@ -182,7 +182,7 @@ corner in these same scaled skin units. They follow the skin when it moves or ch
 | `Title` | empty | Optional heading using the selected font face and TitleFontSize in bold, with matching inline formatting applied. |
 | `TitleFontSize` | `FontSize` | Base heading font size, independent of the body text. Matching inline Size settings override it. Updated while open, including the space reserved for the heading. |
 | `TitleColor` | `FontColor` | Heading color, separate from the body text. Supports the same RGB/RGBA and hex formats as other colors, including a leading `#`. Unset or invalid values use the current FontColor. Updated while open. |
-| `TitleX`, `TitleY` | automatic | Title text origin measured from the tooltip window's top-left corner, in skin units. Set either axis independently; unset/empty axes retain automatic placement after padding, stroke, icon and any top tail. |
+| `TitleX`, `TitleY` | automatic | Title text origin in skin units. TitleX is measured from the window's left edge. TitleY is measured from the body’s top edge, excluding the balloon tail, so changing the tail from top to bottom preserves the title’s position within the body. Set either axis independently; unset/empty axes retain automatic placement after padding, stroke and icon. |
 | `TextX`, `TextY` | automatic | Body text layout origin in skin units. Plain values are coordinates from the tooltip window's top-left corner. A suffix r/R makes the value relative to the title's left/right edge for TextX or top/bottom edge for TextY. Unset/empty axes retain automatic placement. Inline formatting and text effects move with the text. |
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
 | `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). The header reserves this space. SVGs are rasterized at these dimensions multiplied by the skin scale. |
@@ -293,8 +293,10 @@ gradient's angle convention remains unchanged.
 ### Title, text and close-button positioning
 
 Plain title, text and close-button coordinates accept formulas and fractional values and scale
-with the skin. They are absolute within the entire tooltip window, including the tail area when a balloon's
-tail is on top. Moving the body text adjusts the tooltip dimensions to include its right and bottom
+with the skin. TitleY is relative to the tooltip body’s top edge and excludes the balloon tail.
+Other plain coordinates are absolute within the entire tooltip window, including a top tail.
+TextY with an r/R suffix follows the title’s actual top/bottom edge, including its body-relative TitleY.
+Moving the body text adjusts the tooltip dimensions to include its right and bottom
 edges and padding. Title and close-button coordinates do not independently expand the window.
 The text layout retains its original width and height, wrapping, alignment and clipping settings
 when moved. The close button's clickable area follows its new position. All six coordinates update while

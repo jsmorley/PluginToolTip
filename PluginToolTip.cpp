@@ -239,7 +239,7 @@ struct Measure {
         const float x = options.padding[0] + options.borderWidth;
         const float y = top + options.padding[1] + options.borderWidth;
         const float titleX = options.titleX.value_or(x + (icon ? iconW + 6 : 0));
-        const float titleY = options.titleY.value_or(y);
+        const float titleY = top + options.titleY.value_or(options.padding[1] + options.borderWidth);
         auto coordinate = [&](const std::optional<ToolTip::TextCoordinate>& value,
             float automatic, float titleStart, float titleLength) {
             if (!value) return automatic;
@@ -511,7 +511,7 @@ struct Measure {
         }
         const float defaultTitleX = x + (icon ? iconW + 6 : 0);
         const float titleX = options.titleX.value_or(defaultTitleX);
-        const float titleY = options.titleY.value_or(y);
+        const float titleY = top + options.titleY.value_or(options.padding[1] + options.borderWidth);
         if (headerH > 0) {
             const float titleWidth = bodyW - options.padding[2] - (options.close ? 24 : 0) - defaultTitleX;
             Gfx::Canvas::Draw(target.Get(), options.title, *titleFormat,
