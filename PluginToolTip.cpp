@@ -560,8 +560,16 @@ struct Measure {
         if (dib) DeleteObject(dib);
         if (memory) DeleteDC(memory);
         ReleaseDC(nullptr, screen); staging->Unmap();
-        if (ok) SetWindowPos(window, options.topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        if (ok) {
+            // Owned popups must remain above their skin. Do not demote a topmost
+            // owner or raise its window group on every text update / fade frame:
+            // Rainmeter's Stay Topmost timer would compete with those raises.
+            const bool topmost = options.topmost || (GetWindowLongPtrW(skin, GWL_EXSTYLE) & WS_EX_TOPMOST);
+            const bool alreadyTopmost = (GetWindowLongPtrW(window, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+            UINT flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_SHOWWINDOW;
+            if (topmost == alreadyTopmost) flags |= SWP_NOZORDER;
+            SetWindowPos(window, topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, flags);
+        }
         return ok;
     }
     void Show(bool fixed, POINT point, D2D1_POINT_2F relative = {}) {
