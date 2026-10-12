@@ -372,7 +372,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | [SP]20[/SP]Option[SP]20[/SP] | Default | Meaning |
 | --- | --- | --- |
 | `Enabled` | `1` | 0 prevents Show and hides an open instance on its next update. |
-| `InitialDelay` | `500` | First display delay in milliseconds. |
+| `InitialDelay` | `0` | First display delay in milliseconds; default opens immediately. |
 | `ReshowDelay` | `100` | Delay when reopened within one second of its last hide. |
 | `AutoPopDelay` | `5000` | Visible timeout in milliseconds; 0 keeps it open until Hide or dismissal. |
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute. Auto starts below and flips above near the monitor's bottom. |

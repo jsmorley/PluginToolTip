@@ -36,7 +36,7 @@ struct Options {
     std::optional<BackgroundGradient> linearGradient;
     std::wstring bevelProfile;
     float bevelWidth = 1, bevelRelief = 1, bevelSmoothness = 0, bevelAngle = 225;
-    int weight = 400, clip = 2, initialDelay = 500, reshowDelay = 100, autoPopDelay = 5000;
+    int weight = 400, clip = 2, initialDelay = 0, reshowDelay = 100, autoPopDelay = 5000;
     bool balloon = false, close = false, always = true, follow = false, keepOnScreen = true;
     bool antiAlias = true, noFade = false;
     bool dismissClick = true, enabled = true, backgroundGradient = false, topmost = true;

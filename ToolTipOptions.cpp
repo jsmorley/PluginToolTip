@@ -232,7 +232,7 @@ void Options::Load(void* context) {
     if (tailPosition != L"left" && tailPosition != L"center" && tailPosition != L"right") tailPosition = L"center";
     tailGap = Read(L"TailGap").empty() ? -1.0f : static_cast<float>(std::clamp(Number(L"TailGap", 2), 0.0, 8192.0));
     auto delay = [&](const wchar_t* key, int def) { return static_cast<int>(std::clamp(Number(key, def), 0.0, 3600000.0)); };
-    initialDelay = delay(L"InitialDelay", 500); reshowDelay = delay(L"ReshowDelay", 100); autoPopDelay = delay(L"AutoPopDelay", 5000);
+    initialDelay = delay(L"InitialDelay", 0); reshowDelay = delay(L"ReshowDelay", 100); autoPopDelay = delay(L"AutoPopDelay", 5000);
     auto flag = [&](const wchar_t* key, bool def) { return Number(key, def ? 1 : 0) != 0; };
     balloon = flag(L"Balloon", false); close = flag(L"CloseButton", false); always = flag(L"AlwaysTip", true);
     follow = flag(L"FollowMouse", false); keepOnScreen = flag(L"KeepOnScreen", true); dismissClick = flag(L"DismissOnClick", true);
