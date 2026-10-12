@@ -388,7 +388,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
 | `FollowMouse` | `0` | 1 follows the cursor while open. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
-| `Topmost` | `1` | 1 puts the tooltip in the topmost window group without activating it. Redraws preserve window order instead of repeatedly raising the tooltip or its skin. With 0, the owned tooltip still stays above its skin and inherits the skin's topmost status when necessary. |
+| `Topmost` | `1` | 1 puts the tooltip in the topmost window group without activating it. Redraws preserve window order instead of repeatedly raising the tooltip or its skin. With 0, the owned tooltip still stays above its skin and inherits the skin's topmost status when necessary. Actual window order is checked on skin/tooltip position changes and while open: if its own skin moves ahead, the tooltip is placed immediately above it. This also applies when a following tooltip moves from outside the skin onto it with AlwaysOnTop=2 (Stay Topmost). |
 | `DismissOnClick` | `1` | A new left/right mouse press dismisses requested/open tooltips. |
 | `NoFade` | `0` | 1 disables fade-in. |
 
