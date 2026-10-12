@@ -160,6 +160,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `SolidColor` | `255,255,255,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
 | `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
 | `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
+| `LinearGradient` | unset | Shape-style background definition: `Angle | Color ; Position | Color ; Position ...`. Takes precedence over SolidColor, SolidColor2 and GradientAngle when valid. Applies across the entire tooltip, including the heading and balloon tail. |
 | `StrokeSize` | `1` | Outer outline width in skin units, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. |
 | `StrokeColor` | `110,110,110,255` | Color of the outer outline. |
 | `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` uses a light top/left and dark bottom/right border; `Sunken` reverses them. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
@@ -246,6 +247,43 @@ attributes such as `fill` and `stroke`; scripts, animation, text, CSS stylesheet
 filters and external image references are unsupported. Convert text to paths.
 Invalid/unreadable SVGs log a warning and the tooltip continues without an icon.
 SVG documents are limited to 16 MiB.
+
+### Background gradients with multiple stops
+
+`LinearGradient` accepts an angle followed by one or more color stops, with up to 256 stops:
+
+```ini
+LinearGradient=180 | #FF0000 ; 0.0 | #00FF00 ; 0.5 | #0000FF ; 1.0
+```
+
+This creates a left-to-right red-to-green-to-blue background. RGB/RGBA colors and hex colors
+with or without a leading `#` are supported, including transparency. Unlike the existing
+`GradientAngle` option, this option follows the Shape meter's angle convention:
+
+| Angle | Direction from first stop to last stop |
+| --- | --- |
+| 0 or 360 | Right to left |
+| 90 | Bottom to top |
+| 180 | Left to right |
+| 270 | Top to bottom |
+
+Angles wrap around 360 degrees. Stops are sorted by position, retaining their specified order
+when positions are equal (use equal positions for abrupt transitions). Positions normally range
+from 0.0 to 1.0; values outside that range are preserved and affect interpolation within the
+visible range. A single stop produces a uniform color.
+
+For a glossy glass-like surface, try a translucent highlight near the top:
+
+```ini
+LinearGradient=270 | #D6F3FFB0 ; 0 | #8ABBEA70 ; 0.28 | #263C60D0 ; 0.3 | #142542E8 ; 1
+```
+
+The definition is resolved again on every update while the tooltip is open, so it supports
+variables with `DynamicVariables=1`. An empty or invalid definition falls back to the existing
+SolidColor/SolidColor2/GradientAngle settings; invalid definitions also log a warning. The legacy
+gradient's angle convention remains unchanged.
+
+### Heading and close-button positioning
 
 Title and close-button coordinates accept formulas and fractional values and scale with the skin.
 They are absolute within the entire tooltip window, including the tail area when a balloon's

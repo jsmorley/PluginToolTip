@@ -12,6 +12,11 @@ std::vector<std::wstring> Split(const std::wstring& text, wchar_t delimiter);
 D2D1_COLOR_F Color(const std::wstring& text, D2D1_COLOR_F fallback);
 std::optional<Gfx::TextInlineSetting> ParseInline(const std::wstring& text);
 std::vector<Gfx::TextInlineRange> MatchRanges(const std::wstring& text, const std::wstring& pattern, void* rm);
+struct BackgroundGradient {
+    float angle = 0;
+    std::vector<D2D1_GRADIENT_STOP> stops;
+};
+std::optional<BackgroundGradient> ParseBackgroundGradient(const std::wstring& text);
 
 struct Options {
     void* rm = nullptr;
@@ -23,6 +28,7 @@ struct Options {
     float tailGap = -1; // Unset: retain OffsetY's existing scaled gap.
     std::optional<float> titleX, titleY, closeButtonX, closeButtonY;
     float titleFontSize = 10;
+    std::optional<BackgroundGradient> linearGradient;
     std::wstring bevelProfile;
     float bevelWidth = 1, bevelRelief = 1, bevelSmoothness = 0, bevelAngle = 225;
     int weight = 400, clip = 2, initialDelay = 500, reshowDelay = 100, autoPopDelay = 5000;

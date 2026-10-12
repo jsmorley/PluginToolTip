@@ -381,14 +381,23 @@ struct Measure {
         target->CreateSolidColorBrush(options.border, stroke.GetAddressOf());
         if (!fill || !stroke) { target->EndDraw(); target->SetTarget(nullptr); return false; }
         ComPtr<ID2D1Brush> background = fill;
-        if (options.backgroundGradient) {
+        if (options.linearGradient || options.backgroundGradient) {
             D2D1_GRADIENT_STOP stops[] = {{0, options.background}, {1, options.background2}};
+            const auto* gradientStops = options.linearGradient ? options.linearGradient->stops.data() : stops;
+            const auto stopCount = options.linearGradient ? static_cast<UINT32>(options.linearGradient->stops.size()) : 2U;
             ComPtr<ID2D1GradientStopCollection> collection;
             ComPtr<ID2D1LinearGradientBrush> gradient;
-            if (SUCCEEDED(target->CreateGradientStopCollection(stops, 2, collection.GetAddressOf()))) {
-                float radians = options.gradientAngle * 3.14159265f / 180;
+            if (SUCCEEDED(target->CreateGradientStopCollection(gradientStops, stopCount, collection.GetAddressOf()))) {
+                float radians = (options.linearGradient ? options.linearGradient->angle : options.gradientAngle) * 3.14159265f / 180;
                 auto center = D2D1::Point2F(bodyW / 2, (bodyH + tail) / 2);
                 float dx = std::cos(radians) * bodyW / 2, dy = std::sin(radians) * (bodyH + tail) / 2;
+                if (options.linearGradient) {
+                    // Project the rectangle onto the gradient's actual direction,
+                    // so the angle is preserved even on non-square tooltips.
+                    const float extent = (std::abs(std::cos(radians)) * bodyW +
+                        std::abs(std::sin(radians)) * (bodyH + tail)) / 2;
+                    dx = -std::cos(radians) * extent; dy = -std::sin(radians) * extent;
+                }
                 target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(
                     D2D1::Point2F(center.x - dx, center.y - dy), D2D1::Point2F(center.x + dx, center.y + dy)),
                     collection.Get(), gradient.GetAddressOf());

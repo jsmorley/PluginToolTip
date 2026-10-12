@@ -46,6 +46,34 @@ D2D1_COLOR_F Color(const std::wstring& input, D2D1_COLOR_F fallback) {
     }
     return fallback;
 }
+std::optional<BackgroundGradient> ParseBackgroundGradient(const std::wstring& text) {
+    const auto parts = Split(text, L'|');
+    if (parts.size() < 2 || parts.size() > 257) return {};
+    const float invalid = std::numeric_limits<float>::quiet_NaN();
+    const float angle = Value(parts[0], invalid);
+    if (!std::isfinite(angle)) return {};
+    BackgroundGradient result;
+    result.angle = std::fmod(angle, 360.0f);
+    for (size_t i = 1; i < parts.size(); ++i) {
+        const auto stop = Split(parts[i], L';');
+        if (stop.size() != 2) return {};
+        const float position = Value(stop[1], invalid);
+        if (!std::isfinite(position)) return {};
+        const auto channels = Split(stop[0], L',');
+        if (channels.size() > 1) {
+            if (channels.size() != 3 && channels.size() != 4) return {};
+            for (const auto& channel : channels) if (!std::isfinite(Value(channel, invalid))) return {};
+        }
+        const auto color = Color(stop[0], D2D1::ColorF(invalid, invalid, invalid, invalid));
+        if (!std::isfinite(color.r)) return {};
+        // Preserve out-of-range positions: Direct2D uses them for interpolation.
+        result.stops.push_back({position, color});
+    }
+    std::stable_sort(result.stops.begin(), result.stops.end(), [](const auto& a, const auto& b) {
+        return a.position < b.position;
+    });
+    return result;
+}
 std::optional<Gfx::TextInlineSetting> ParseInline(const std::wstring& s) {
     using namespace Gfx;
     auto p = Split(s, L'|');
@@ -142,6 +170,10 @@ void Options::Load(void* context) {
     background = Color(Read(L"SolidColor", L"255,255,255,255"), D2D1::ColorF(0xffffff));
     auto second = Read(L"SolidColor2"); backgroundGradient = !second.empty(); background2 = Color(second, background);
     gradientAngle = static_cast<float>(Number(L"GradientAngle", 0));
+    const auto gradientDefinition = Trim(Read(L"LinearGradient"));
+    linearGradient = gradientDefinition.empty() ? std::nullopt : ParseBackgroundGradient(gradientDefinition);
+    if (!gradientDefinition.empty() && !linearGradient)
+        RmLog(rm, LOG_WARNING, L"ToolTip: invalid LinearGradient (use Angle | Color ; Position, up to 256 stops)");
     font = Color(Read(L"FontColor", L"0,0,0,255"), D2D1::ColorF(0));
     titleColor = Color(Read(L"TitleColor"), font);
     auto coordinate = [&](const wchar_t* key) -> std::optional<float> {
