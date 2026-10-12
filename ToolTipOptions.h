@@ -17,6 +17,10 @@ struct BackgroundGradient {
     std::vector<D2D1_GRADIENT_STOP> stops;
 };
 std::optional<BackgroundGradient> ParseBackgroundGradient(const std::wstring& text);
+struct TextCoordinate {
+    float offset = 0;
+    wchar_t relative = 0; // r: title start edge; R: title end edge; 0: absolute.
+};
 
 struct Options {
     void* rm = nullptr;
@@ -27,6 +31,7 @@ struct Options {
     float borderWidth = 1, radius = 6, gradientAngle = 0, offsetX = 0, offsetY = 20;
     float tailGap = -1; // Unset: retain OffsetY's existing scaled gap.
     std::optional<float> titleX, titleY, closeButtonX, closeButtonY;
+    std::optional<TextCoordinate> textX, textY;
     float titleFontSize = 10;
     std::optional<BackgroundGradient> linearGradient;
     std::wstring bevelProfile;

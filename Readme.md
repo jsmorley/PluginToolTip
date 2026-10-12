@@ -177,6 +177,7 @@ by the Rainmeter API. Explicit `Show x y` coordinates are always physical screen
 | `TitleFontSize` | `FontSize` | Base heading font size, independent of the body text. Matching inline Size settings override it. Updated while open, including the space reserved for the heading. |
 | `TitleColor` | `FontColor` | Heading color, separate from the body text. Supports the same RGB/RGBA and hex formats as other colors, including a leading `#`. Unset or invalid values use the current FontColor. Updated while open. |
 | `TitleX`, `TitleY` | automatic | Title text origin measured from the tooltip window's top-left corner, in skin units. Set either axis independently; unset/empty axes retain automatic placement after padding, stroke, icon and any top tail. |
+| `TextX`, `TextY` | automatic | Body text layout origin in skin units. Plain values are coordinates from the tooltip window's top-left corner. A suffix r/R makes the value relative to the title's left/right edge for TextX or top/bottom edge for TextY. Unset/empty axes retain automatic placement. Inline formatting and text effects move with the text. |
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
 | `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). The header reserves this space. SVGs are rasterized at these dimensions multiplied by the skin scale. |
 | `Balloon` | `0` | `1` adds rounded balloon corners and a tail. `0` draws a square rectangle. |
@@ -283,23 +284,42 @@ variables with `DynamicVariables=1`. An empty or invalid definition falls back t
 SolidColor/SolidColor2/GradientAngle settings; invalid definitions also log a warning. The legacy
 gradient's angle convention remains unchanged.
 
-### Heading and close-button positioning
+### Title, text and close-button positioning
 
-Title and close-button coordinates accept formulas and fractional values and scale with the skin.
-They are absolute within the entire tooltip window, including the tail area when a balloon's
+Plain title, text and close-button coordinates accept formulas and fractional values and scale
+with the skin. They are absolute within the entire tooltip window, including the tail area when a balloon's
 tail is on top. Changing coordinates moves the item without changing the normal header/body
 layout or automatically expanding the window; use padding, W/H or font sizes to reserve space.
-The close button's clickable area follows its new position. All four coordinates update while
+The text layout retains its original width and height, wrapping, alignment and clipping settings
+when moved. The close button's clickable area follows its new position. All six coordinates update while
 the tooltip is open. For example:
 
 ```ini
 TitleFontSize=16
 TitleX=20
 TitleY=24
+TextX=20
+TextY=54
 CloseButton=1
 CloseButtonX=300
 CloseButtonY=20
 ```
+
+To position the body below the title and align their left edges:
+
+```ini
+TextX=0r
+TextY=4R
+```
+
+`TextY=4r` starts 4 skin units below the title's top; `TextY=4R` starts 4 units below
+its bottom. `TextX=4r` starts 4 units to the right of the title's left edge;
+`TextX=4R` starts 4 units to the right of its right edge. Negative and fractional offsets
+are supported, as are bare `r` and `R` for a zero offset. Relative offsets are numeric
+values (variables are resolved first); plain absolute values also accept formulas.
+The title's current position and measured text size determine the reference edges, including
+TitleFontSize and inline formatting, and relative positions are recalculated on every update.
+If Title is empty, both suffixes instead offset the body's automatic position.
 
 ## Inline string formatting
 

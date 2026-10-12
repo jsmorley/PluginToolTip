@@ -41,6 +41,7 @@ struct Measure {
     ToolTip::CursorEdges cursorEdges;
     SIZE pixels{};
     float scale = 1, bodyW = 1, bodyH = 1, headerH = 0, tail = 0;
+    D2D1_SIZE_F titleSize{};
     std::wstring text;
     ToolTip::Options options;
     ComPtr<ID2D1DeviceContext> target;
@@ -222,7 +223,7 @@ struct Measure {
         float w = options.width > 0 ? options.width : std::min(size.width + 1, maxW);
         float h = options.height > 0 ? options.height : size.height + 1;
         if (options.clip == 2 && options.height == 0 && options.clipH > 0) h = std::min(h, options.clipH);
-        auto titleSize = Gfx::Canvas::Measure(options.title, *titleFormat, 8192, true);
+        titleSize = Gfx::Canvas::Measure(options.title, *titleFormat, 8192, true);
         headerH = options.title.empty() && !icon && !options.close ? 0 : std::max(titleSize.height + 5, icon ? iconH + 5 : 0.0f);
         float headerW = titleSize.width + (icon ? iconW + 6 : 0) + (options.close ? 24.0f : 0);
         bodyW = std::clamp(std::max(w, headerW) + options.padding[0] + options.padding[2] + 2 * options.borderWidth, 1.0f, 8192.0f / scale);
@@ -449,10 +450,10 @@ struct Measure {
                 SUCCEEDED(target->CreateBitmapFromWicBitmap(converted.Get(), iconBitmap.GetAddressOf())))
                 target->DrawBitmap(iconBitmap.Get(), D2D1::RectF(x, y, x + iconW, y + iconH));
         }
+        const float defaultTitleX = x + (icon ? iconW + 6 : 0);
+        const float titleX = options.titleX.value_or(defaultTitleX);
+        const float titleY = options.titleY.value_or(y);
         if (headerH > 0) {
-            const float defaultTitleX = x + (icon ? iconW + 6 : 0);
-            const float titleX = options.titleX.value_or(defaultTitleX);
-            const float titleY = options.titleY.value_or(y);
             const float titleWidth = bodyW - options.padding[2] - (options.close ? 24 : 0) - defaultTitleX;
             Gfx::Canvas::Draw(target.Get(), options.title, *titleFormat,
                 D2D1::RectF(titleX, titleY, titleX + titleWidth, titleY + headerH), options.titleColor, true, true);
@@ -468,6 +469,17 @@ struct Measure {
         }
         auto rect = D2D1::RectF(x, y + headerH, bodyW - options.padding[2] - options.borderWidth,
             top + bodyH - options.padding[3] - options.borderWidth);
+        auto textCoordinate = [&](const std::optional<ToolTip::TextCoordinate>& coordinate,
+            float automatic, float titleStart, float titleLength) {
+            if (!coordinate) return automatic;
+            if (!coordinate->relative) return coordinate->offset;
+            if (options.title.empty()) return automatic + coordinate->offset;
+            return titleStart + coordinate->offset + (coordinate->relative == L'R' ? titleLength : 0);
+        };
+        const float textOffsetX = textCoordinate(options.textX, rect.left, titleX, titleSize.width) - rect.left;
+        const float textOffsetY = textCoordinate(options.textY, rect.top, titleY, titleSize.height) - rect.top;
+        rect.left += textOffsetX; rect.right += textOffsetX;
+        rect.top += textOffsetY; rect.bottom += textOffsetY;
         if (options.effect == L"shadow" || options.effect == L"border") {
             const int offsets[][2] = {{1, 1}, {-1, 0}, {1, 0}, {0, -1}, {0, 1}};
             for (int i = options.effect == L"shadow" ? 0 : 1; i < (options.effect == L"shadow" ? 1 : 5); ++i) {

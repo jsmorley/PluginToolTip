@@ -182,6 +182,22 @@ void Options::Load(void* context) {
     };
     titleX = coordinate(L"TitleX"); titleY = coordinate(L"TitleY");
     closeButtonX = coordinate(L"CloseButtonX"); closeButtonY = coordinate(L"CloseButtonY");
+    auto textCoordinate = [&](const wchar_t* key) -> std::optional<TextCoordinate> {
+        auto value = Trim(Read(key));
+        if (value.empty()) return {};
+        const auto suffix = value.back();
+        if (suffix != L'r' && suffix != L'R') {
+            return TextCoordinate{coordinate(key).value_or(0), 0};
+        }
+        value = Trim(value.substr(0, value.size() - 1));
+        const float offset = value.empty() ? 0 : Value(value, std::numeric_limits<float>::quiet_NaN());
+        if (!std::isfinite(offset)) {
+            RmLog(rm, LOG_WARNING, (std::wstring(L"ToolTip: invalid ") + key + L" relative offset (use 4r or 4R)").c_str());
+            return {};
+        }
+        return TextCoordinate{std::clamp(offset, -8192.0f, 8192.0f), suffix};
+    };
+    textX = textCoordinate(L"TextX"); textY = textCoordinate(L"TextY");
     effectColor = Color(Read(L"FontEffectColor", L"0,0,0,255"), D2D1::ColorF(0));
     border = Color(Read(L"BorderColor", L"110,110,110,255"), D2D1::ColorF(0x6e6e6e));
     borderWidth = static_cast<float>(std::clamp(Number(L"BorderWidth", 1), 0.0, 32.0));
