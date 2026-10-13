@@ -616,6 +616,13 @@ struct Measure {
     void Tick() {
         if (!requested) return;
         if (!IsWindow(skin) || !IsWindowVisible(skin) || IsIconic(skin)) { Hide(); return; }
+        // Query Windows' actual menu state rather than treating every right click
+        // as a context menu. This also covers keyboard/bang-opened skin menus,
+        // without subclassing the host's unload-sensitive window procedure.
+        GUITHREADINFO gui{sizeof(gui)};
+        if (GetGUIThreadInfo(GetWindowThreadProcessId(skin, nullptr), &gui) &&
+            (gui.flags & (GUI_INMENUMODE | GUI_POPUPMENUMODE | GUI_SYSTEMMENUMODE)) &&
+            gui.hwndMenuOwner == skin) { Hide(); return; }
         if (!options.always && GetAncestor(GetForegroundWindow(), GA_ROOT) != GetAncestor(skin, GA_ROOT)) { Hide(); return; }
         const bool left = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
         const bool right = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
