@@ -64,7 +64,7 @@ struct Options
 	bool balloon = false;
 	bool close = false;
 	bool always = true;
-	bool follow = false;
+	bool follow = true;
 	bool keepOnScreen = true;
 	bool antiAlias = true;
 	bool noFade = false;

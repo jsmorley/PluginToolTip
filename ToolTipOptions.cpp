@@ -190,7 +190,7 @@ void Options::ReadBehaviorOptions()
 	balloon = flag(L"Balloon", false);
 	close = flag(L"CloseButton", false);
 	always = flag(L"AlwaysTip", true);
-	follow = flag(L"FollowMouse", false);
+	follow = flag(L"FollowMouse", true);
 	keepOnScreen = flag(L"KeepOnScreen", true);
 	dismissClick = flag(L"DismissOnClick", true);
 	antiAlias = flag(L"AntiAlias", true);
