@@ -386,7 +386,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute, or a pair: Below \| Left, Below \| Right, Above \| Left, Above \| Right. Auto starts below and flips above near the monitor's bottom. Pairs select both vertical and horizontal placement relative to the anchor. |
 | `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in skin units. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
-| `FollowMouse` | `0` | 1 follows the cursor while open. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
+| `FollowMouse` | `0` | 1 follows the cursor while open. With KeepOnScreen=1, balloons using Auto, Above, or Below (including Above/Below Left/Right pairs) flip to the other side near the top/bottom of the screen, attempting to keep the tail pointed at the cursor. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
 | `Topmost` | `1` | 1 puts the tooltip in the topmost window group without activating it. Redraws preserve window order instead of repeatedly raising the tooltip or its skin. With 0, the owned tooltip still stays above its skin and inherits the skin's topmost status when necessary. Actual window order is checked on tooltip position changes and every open-window timer tick: if its own skin moves ahead, the tooltip is placed immediately above it in the window order. This also applies when a following tooltip moves from outside the skin onto it with AlwaysOnTop=2 (Stay Topmost). The plugin does not subclass the skin window, allowing Rainmeter to unload it safely from the skin's window procedure. |
 | `DismissOnClick` | `1` | A new left/right mouse press dismisses requested/open tooltips. With 0, ordinary clicks do not dismiss them, but opening this skin's context menu always dismisses an open tooltip or cancels a pending display. This also applies to keyboard- or bang-opened skin menus; menus owned by other windows do not override this setting. |
@@ -409,7 +409,8 @@ Balloons place the body on the selected side with their tail aligned to the anch
 the tail and rounded corner leave a small portion of the window across the anchor.
 For pairs, the absolute OffsetX moves the body farther toward the selected side.
 With mouse anchors, OffsetY/TailGap retain their usual vertical behavior. Explicit Above/Below pairs do
-not automatically flip, except for a balloon tail anchored by Show x y with FollowMouse=0;
+not automatically flip, except for a balloon tail anchored by Show x y with FollowMouse=0
+or a mouse-following balloon with FollowMouse=1;
 KeepOnScreen can still clamp them to the monitor's work area.
 Invalid pairs log a warning and fall back to Auto.
 

@@ -255,7 +255,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			{m_Options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
 		float tx = std::clamp((m_Attachment.x - m_Origin.x) / m_Scale, body.left + r + 9,
 			std::max(body.left + r + 9, body.right - r - 9));
-		// A skin-relative tail point stays anchored even when the window is moved
+		// A skin-relative or following-cursor tail stays anchored when the window is moved
 		// away from a screen edge. Only its base must clear the rounded corners.
 		const float tipX = IsTailAnchored() ? std::clamp((m_Attachment.x - m_Origin.x) / m_Scale,
 												  body.left, std::max(body.left, body.right))
