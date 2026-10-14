@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -176,6 +176,13 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <ItemGroup>
+    <ClCompile Include="ToolTipMeasure.cpp" />
+    <ClCompile Include="ToolTipGraphics.cpp" />
+    <ClCompile Include="ToolTipIcon.cpp" />
+    <ClCompile Include="ToolTipLayout.cpp" />
+    <ClCompile Include="ToolTipDrawing.cpp" />
+    <ClCompile Include="ToolTipParser.cpp" />
+    <ClCompile Include="CursorAttachment.cpp" />
     <ClCompile Include="ToolTipOptions.cpp" />
     <ClCompile Include="ToolTipRenderer.cpp" />
     <ClCompile Include="vendor\Gfx\TextFormat.cpp" />
@@ -247,6 +254,9 @@
     <ClCompile Include="vendor\pcre\pcre16_xclass.c">
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
+    <ClInclude Include="ToolTipMeasure.h" />
+    <ClInclude Include="ToolTipGraphics.h" />
+    <ClInclude Include="ToolTipParser.h" />
     <ClInclude Include="ToolTipOptions.h" />
     <ClInclude Include="CursorAttachment.h" />
     <ClInclude Include="vendor\StdAfx.h" />
@@ -283,7 +293,6 @@
     <None Include="Examples\ToolTip.ini" />
     <None Include="vendor\README.md" />
     <None Include="vendor\pcre\LICENCE" />
-    <None Include="tests\RunTests.ps1" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

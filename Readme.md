@@ -429,3 +429,32 @@ Escape dismisses requested/open tooltips. The plugin also hides tooltips when th
 is hidden/minimized. Popups do not activate or steal focus, and content passes mouse
 input through except for its close button. Cleanup destroys the instance's windows and timers
 when the measure is finalized/refreshed.
+
+## Source layout and development
+
+Version 2.14.0.0 reorganizes the plugin using the conventions in the Rainmeter4 source
+and C++ Plugin SDK: class declarations in headers, private instance members with `m_`
+names, out-of-line implementations, tab indentation, and Allman braces for functions
+and control flow. The existing skin options, defaults, commands, and rendering behavior
+are retained. The bundled Rainmeter text formatter and PCRE sources remain separate
+dependencies.
+
+| File | Responsibility |
+| --- | --- |
+| `PluginToolTip.cpp` | Rainmeter SDK exports; delegates to one `ToolTipMeasure` per measure instance. |
+| `ToolTipMeasure.h`, `ToolTipMeasure.cpp` | Private instance state, window lifetime, commands, timers, dynamic updates, dismissal, and ordering above the owning skin. |
+| `ToolTipLayout.cpp` | DPI scale, text bounds, title-relative coordinates, cursor attachment, window placement, and close-button hit testing. |
+| `ToolTipDrawing.cpp` | Tooltip background, gradients, strokes and bevels, title/body drawing, and layered-window presentation. |
+| `ToolTipGraphics.h`, `ToolTipGraphics.cpp` | Shared graphics device resources and creation of each instance's drawing context. |
+| `ToolTipIcon.cpp` | Standard icons, icon files, and SVG loading/rasterization. |
+| `ToolTipOptions.h`, `ToolTipOptions.cpp` | Parsed option snapshot, grouped option readers, measure substitutions, and text-format configuration. |
+| `ToolTipParser.h`, `ToolTipParser.cpp` | Colors, gradient stops, inline settings, and bounded PCRE matching. |
+| `CursorAttachment.h`, `CursorAttachment.cpp` | Visible cursor bounds relative to its hotspot. |
+| `ToolTipRenderer.cpp` | Adapter for the bundled Rainmeter DirectWrite text formatter. |
+
+Build `PluginToolTip.vcxproj` in `Release|Win32` and `Release|x64`. Output DLLs are
+`x32/Release/ToolTip.dll` and `x64/Release/ToolTip.dll`. Each measure owns its popup and
+releases its timers, icons, layouts, and drawing context during finalization. Measures
+share the graphics device and font factory until the final instance is destroyed.
+The plugin never subclasses the skin window; Rainmeter can unload a plugin while its
+own window procedure is running.
