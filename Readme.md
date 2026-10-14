@@ -185,7 +185,7 @@ corner in these same scaled skin units. They follow the skin when it moves or ch
 | `TitleX`, `TitleY` | automatic | Title text origin in skin units. TitleX is measured from the window's left edge. TitleY is measured from the body’s top edge, excluding the balloon tail, so changing the tail from top to bottom preserves the title’s position within the body. Set either axis independently; unset/empty axes retain automatic placement after padding, stroke and icon. |
 | `TextX`, `TextY` | automatic | Body text layout origin in skin units. Plain values are coordinates from the tooltip window's top-left corner. A suffix r/R makes the value relative to the title's left/right edge for TextX or top/bottom edge for TextY. Unset/empty axes retain automatic placement. Inline formatting and text effects move with the text. |
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
-| `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). The header reserves this space. SVGs are rasterized at these dimensions multiplied by the skin scale. |
+| `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). Set either dimension alone to calculate the other from the image's aspect ratio; set both to specify the icon area. If neither is set, the area is 24×24. SVGs are rasterized at the skin scale and retain their SVG aspect-ratio behavior. |
 | `Balloon` | `0` | `1` adds rounded balloon corners and a tail. `0` draws a square rectangle. |
 | `TailPosition` | `Center` | `Left` places the tail just left of the visible cursor, `Center` directly beneath it, and `Right` just right of it. Applies to mouse-anchored balloons in Auto/Below/Above positions. Case-insensitive; invalid values use Center. |
 | `TailGap` | unset | Gap in physical screen pixels from the cursor's visible bottom to the popup's tail edge when below (top edge when above). Overrides OffsetY for vertical balloon placement. 0 touches the edge; values are rounded to whole pixels and clamped to 0–8192. Unset preserves OffsetY. Explicit Show x y uses the supplied point instead of cursor bounds. |
@@ -235,8 +235,17 @@ IconH=24
 
 Include a `viewBox` so the artwork scales to `IconW` and `IconH`; SVG's
 `preserveAspectRatio` controls fitting within a rectangular viewport. The icon
-appears in the header with or without `Title`. Transparency is preserved.
+appears directly left of `Title` when a title is defined, or directly left of
+`Text` on the same row when no title is defined. Icons do not require a title.
+A title without text does not reserve an empty text row. Transparency is preserved.
 These dimension options also resize standard and ICO icons.
+
+Set only `IconW` or only `IconH` to preserve the image's aspect ratio and
+calculate the missing dimension. For SVGs, the ratio comes from the `viewBox`,
+or from intrinsic width and height when no viewBox is present. If no usable
+ratio is available, a square is assumed. Calculated dimensions are limited to
+1–512 skin units. SVG root width/height attributes do not override the requested
+icon size; transparent margins within the viewBox remain part of the image.
 
 Rainmeter variables and measure references in `Icon`, `IconW` and `IconH` are
 resolved on each skin update while the tooltip is open. For dynamic inline

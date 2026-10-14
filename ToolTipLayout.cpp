@@ -51,7 +51,8 @@ D2D1_RECT_F ToolTipMeasure::GetTextRect(float top) const
 		}
 		return titleStart + value->offset + (value->relative == L'R' ? titleLength : 0);
 	};
-	const float left = coordinate(m_Options.textX, x, titleX, m_TitleSize.width);
+	const float automaticX = x + (m_Options.title.empty() && m_Icon ? m_IconWidth + 6 : 0);
+	const float left = coordinate(m_Options.textX, automaticX, titleX, m_TitleSize.width);
 	const float textTop =
 		coordinate(m_Options.textY, y + m_HeaderHeight, titleY, m_TitleSize.height);
 	return D2D1::RectF(
@@ -67,30 +68,35 @@ void ToolTipMeasure::UpdateLayout()
 	auto maxW = m_Options.width > 0					 ? m_Options.width
 		: m_Options.clip == 2 && m_Options.clipW > 0 ? m_Options.clipW
 													 : 8192;
-	auto size = Gfx::Canvas::Measure(m_Text, *m_TextFormat, maxW, true);
-	float w = m_Options.width > 0 ? m_Options.width : std::min(size.width + 1, maxW);
-	float h = m_Options.height > 0 ? m_Options.height : size.height + 1;
+	auto size =
+		m_Text.empty() ? D2D1::SizeF() : Gfx::Canvas::Measure(m_Text, *m_TextFormat, maxW, true);
+	float w = m_Options.width > 0 ? m_Options.width
+								  : std::min(size.width + (m_Text.empty() ? 0 : 1), maxW);
+	float h = m_Options.height > 0 ? m_Options.height : size.height + (m_Text.empty() ? 0 : 1);
 	if (m_Options.clip == 2 && m_Options.height == 0 && m_Options.clipH > 0)
 	{
 		h = std::min(h, m_Options.clipH);
 	}
-	m_TitleSize = Gfx::Canvas::Measure(m_Options.title, *m_TitleFormat, 8192, true);
-	m_HeaderHeight = m_Options.title.empty() && !m_Icon && !m_Options.close
-		? 0
-		: std::max(m_TitleSize.height + 5, m_Icon ? m_IconHeight + 5 : 0.0f);
+	m_TitleSize = m_Options.title.empty()
+		? D2D1::SizeF()
+		: Gfx::Canvas::Measure(m_Options.title, *m_TitleFormat, 8192, true);
+	const float rowHeight = std::max(
+		{m_TitleSize.height, m_Icon ? m_IconHeight : 0.0f, m_Options.close ? 22.0f : 0.0f});
+	m_HeaderHeight = m_Options.title.empty() ? 0 : rowHeight + (h > 0 ? 5 : 0);
 	float headerW =
 		m_TitleSize.width + (m_Icon ? m_IconWidth + 6 : 0) + (m_Options.close ? 24.0f : 0);
-	m_TextLayoutSize = D2D1::SizeF(std::max(w, headerW), h);
+	m_TextLayoutSize = D2D1::SizeF(m_Options.title.empty() ? w : std::max(w, headerW), h);
 	// Reserve the positioned layout plus trailing padding/stroke. Measuring
 	// without a top tail also leaves enough room for either tail orientation.
 	const auto textRect = GetTextRect(0);
 	const float headerWidth =
 		headerW + m_Options.padding[0] + m_Options.padding[2] + 2 * m_Options.borderWidth;
 	const float headerHeight =
-		m_HeaderHeight + m_Options.padding[1] + m_Options.padding[3] + 2 * m_Options.borderWidth;
-	m_BodyWidth = std::clamp(
-		std::max(headerWidth, textRect.right + m_Options.padding[2] + m_Options.borderWidth), 1.0f,
-		8192.0f / m_Scale);
+		rowHeight + m_Options.padding[1] + m_Options.padding[3] + 2 * m_Options.borderWidth;
+	m_BodyWidth = std::clamp(std::max(headerWidth,
+								 textRect.right + m_Options.padding[2] + m_Options.borderWidth +
+									 (m_Options.title.empty() && m_Options.close ? 24.0f : 0.0f)),
+		1.0f, 8192.0f / m_Scale);
 	m_BodyHeight = std::clamp(
 		std::max(headerHeight, textRect.bottom + m_Options.padding[3] + m_Options.borderWidth),
 		1.0f, 8192.0f / m_Scale);

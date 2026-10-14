@@ -227,8 +227,8 @@ void ToolTipMeasure::UpdateOpen()
 	const auto oldIcon = m_Options.icon;
 	ReadOptions();
 	const bool iconChanged = oldIcon != m_Options.icon || m_IconScale != m_Scale ||
-		m_IconWidth != static_cast<float>(std::clamp(m_Options.Number(L"IconW", 24), 1.0, 512.0)) ||
-		m_IconHeight != static_cast<float>(std::clamp(m_Options.Number(L"IconH", 24), 1.0, 512.0));
+		m_RequestedIconWidth != m_Options.Number(L"IconW", 0) ||
+		m_RequestedIconHeight != m_Options.Number(L"IconH", 0);
 	if (!m_Options.enabled)
 	{
 		Hide();

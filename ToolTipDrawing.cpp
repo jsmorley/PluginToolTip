@@ -336,26 +336,26 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	const float titleX = m_Options.titleX.value_or(defaultTitleX);
 	const float titleY =
 		top + m_Options.titleY.value_or(m_Options.padding[1] + m_Options.borderWidth);
-	if (m_HeaderHeight > 0)
+	if (!m_Options.title.empty())
 	{
 		const float titleWidth =
 			m_BodyWidth - m_Options.padding[2] - (m_Options.close ? 24 : 0) - defaultTitleX;
 		Gfx::Canvas::Draw(m_Target.Get(), m_Options.title, *m_TitleFormat,
 			D2D1::RectF(titleX, titleY, titleX + titleWidth, titleY + m_HeaderHeight),
 			m_Options.titleColor, true, true);
-		if (m_Options.close)
+	}
+	if (m_Options.close)
+	{
+		ComPtr<ID2D1SolidColorBrush> closeBrush;
+		m_Target->CreateSolidColorBrush(m_Options.font, closeBrush.GetAddressOf());
+		const auto button = GetCloseButtonOrigin();
+		const float cx = button.x + 12, cy = button.y + m_Options.borderWidth + 8;
+		if (closeBrush)
 		{
-			ComPtr<ID2D1SolidColorBrush> closeBrush;
-			m_Target->CreateSolidColorBrush(m_Options.font, closeBrush.GetAddressOf());
-			const auto button = GetCloseButtonOrigin();
-			const float cx = button.x + 12, cy = button.y + m_Options.borderWidth + 8;
-			if (closeBrush)
-			{
-				m_Target->DrawLine(D2D1::Point2F(cx - 4, cy - 4), D2D1::Point2F(cx + 4, cy + 4),
-					closeBrush.Get(), 1.5f);
-				m_Target->DrawLine(D2D1::Point2F(cx + 4, cy - 4), D2D1::Point2F(cx - 4, cy + 4),
-					closeBrush.Get(), 1.5f);
-			}
+			m_Target->DrawLine(D2D1::Point2F(cx - 4, cy - 4), D2D1::Point2F(cx + 4, cy + 4),
+				closeBrush.Get(), 1.5f);
+			m_Target->DrawLine(D2D1::Point2F(cx + 4, cy - 4), D2D1::Point2F(cx - 4, cy + 4),
+				closeBrush.Get(), 1.5f);
 		}
 	}
 	const auto rect = GetTextRect(top);

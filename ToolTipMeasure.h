@@ -67,6 +67,8 @@ private:
 	float m_IconWidth = 24;
 	float m_IconHeight = 24;
 	float m_IconScale = 1;
+	double m_RequestedIconWidth = 0;
+	double m_RequestedIconHeight = 0;
 	bool m_IconOwned = false;
 	bool m_Requested = false;
 	bool m_Visible = false;

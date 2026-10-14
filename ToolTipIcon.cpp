@@ -9,6 +9,27 @@
 
 using Microsoft::WRL::ComPtr;
 
+namespace {
+void ResolveIconSize(
+	double requestedWidth, double requestedHeight, float ratio, float& width, float& height)
+{
+	if (!std::isfinite(ratio) || ratio <= 0)
+	{
+		ratio = 1;
+	}
+	width = static_cast<float>(requestedWidth > 0 ? std::clamp(requestedWidth, 1.0, 512.0) : 24);
+	height = static_cast<float>(requestedHeight > 0 ? std::clamp(requestedHeight, 1.0, 512.0) : 24);
+	if (requestedWidth > 0 && requestedHeight <= 0)
+	{
+		height = std::clamp(width / ratio, 1.0f, 512.0f);
+	}
+	else if (requestedHeight > 0 && requestedWidth <= 0)
+	{
+		width = std::clamp(height * ratio, 1.0f, 512.0f);
+	}
+}
+}
+
 void ToolTipMeasure::DestroyIconResource()
 {
 	if (m_IconOwned && m_Icon)
@@ -73,12 +94,47 @@ HICON ToolTipMeasure::LoadSvgIcon(const std::wstring& source)
 	{
 		return nullptr;
 	}
-	UINT width = static_cast<UINT>(std::ceil(m_IconWidth * m_Scale)),
-		 height = static_cast<UINT>(std::ceil(m_IconHeight * m_Scale));
 	ComPtr<ID2D1SvgDocument> document;
-	if (FAILED(svgContext->CreateSvgDocument(stream.Get(),
-			D2D1::SizeF(static_cast<float>(width), static_cast<float>(height)),
-			document.GetAddressOf())))
+	if (FAILED(svgContext->CreateSvgDocument(
+			stream.Get(), D2D1::SizeF(24, 24), document.GetAddressOf())))
+	{
+		return nullptr;
+	}
+	ComPtr<ID2D1SvgElement> root;
+	document->GetRoot(root.GetAddressOf());
+	if (!root)
+	{
+		return nullptr;
+	}
+	D2D1_SVG_VIEWBOX viewBox{};
+	D2D1_SVG_LENGTH intrinsicWidth{}, intrinsicHeight{};
+	float ratio = 1;
+	if (SUCCEEDED(root->GetAttributeValue(
+			L"viewBox", D2D1_SVG_ATTRIBUTE_POD_TYPE_VIEWBOX, &viewBox, sizeof(viewBox))) &&
+		viewBox.width > 0 && viewBox.height > 0)
+	{
+		ratio = viewBox.width / viewBox.height;
+	}
+	else if (SUCCEEDED(root->GetAttributeValue(L"width", &intrinsicWidth)) &&
+		SUCCEEDED(root->GetAttributeValue(L"height", &intrinsicHeight)) &&
+		intrinsicWidth.units == D2D1_SVG_LENGTH_UNITS_NUMBER &&
+		intrinsicHeight.units == D2D1_SVG_LENGTH_UNITS_NUMBER && intrinsicWidth.value > 0 &&
+		intrinsicHeight.value > 0)
+	{
+		ratio = intrinsicWidth.value / intrinsicHeight.value;
+		// Supply intrinsic drawing bounds when the file has no viewBox.
+		viewBox = {0, 0, intrinsicWidth.value, intrinsicHeight.value};
+		root->SetAttributeValue(
+			L"viewBox", D2D1_SVG_ATTRIBUTE_POD_TYPE_VIEWBOX, &viewBox, sizeof(viewBox));
+	}
+	ResolveIconSize(m_RequestedIconWidth, m_RequestedIconHeight, ratio, m_IconWidth, m_IconHeight);
+	UINT width = static_cast<UINT>(std::ceil(m_IconWidth * m_Scale));
+	UINT height = static_cast<UINT>(std::ceil(m_IconHeight * m_Scale));
+	const D2D1_SVG_LENGTH full = {100, D2D1_SVG_LENGTH_UNITS_PERCENTAGE};
+	if (FAILED(document->SetViewportSize(
+			D2D1::SizeF(static_cast<float>(width), static_cast<float>(height)))) ||
+		FAILED(root->SetAttributeValue(L"width", full)) ||
+		FAILED(root->SetAttributeValue(L"height", full)))
 	{
 		return nullptr;
 	}
@@ -159,8 +215,9 @@ void ToolTipMeasure::ReadIcon()
 	}
 	m_Icon = nullptr;
 	m_IconOwned = false;
-	m_IconWidth = static_cast<float>(std::clamp(m_Options.Number(L"IconW", 24), 1.0, 512.0));
-	m_IconHeight = static_cast<float>(std::clamp(m_Options.Number(L"IconH", 24), 1.0, 512.0));
+	m_RequestedIconWidth = m_Options.Number(L"IconW", 0);
+	m_RequestedIconHeight = m_Options.Number(L"IconH", 0);
+	ResolveIconSize(m_RequestedIconWidth, m_RequestedIconHeight, 1, m_IconWidth, m_IconHeight);
 	m_IconScale = m_Scale;
 	const auto source = ToolTip::Trim(m_Options.icon);
 	const auto name = ToolTip::Lower(source);
@@ -191,13 +248,34 @@ void ToolTipMeasure::ReadIcon()
 		}
 		std::wstring path = RmPathToAbsolute(m_Rm, m_Options.icon.c_str());
 		m_Icon = static_cast<HICON>(
-			LoadImageW(nullptr, path.c_str(), IMAGE_ICON, 32, 32, LR_LOADFROMFILE));
+			LoadImageW(nullptr, path.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE));
 		m_IconOwned = m_Icon != nullptr;
 		if (!m_Icon)
 		{
 			RmLog(m_Rm, LOG_WARNING,
 				L"ToolTip: Icon file could not be loaded (use an .ico or .svg file, or inline "
 				L"SVG)");
+		}
+	}
+	ICONINFO info{};
+	if (m_Icon && GetIconInfo(m_Icon, &info))
+	{
+		BITMAP bitmap{};
+		const bool color = info.hbmColor != nullptr;
+		if (GetObjectW(color ? info.hbmColor : info.hbmMask, sizeof(bitmap), &bitmap) &&
+			bitmap.bmHeight > 0)
+		{
+			ResolveIconSize(m_RequestedIconWidth, m_RequestedIconHeight,
+				static_cast<float>(bitmap.bmWidth) / (bitmap.bmHeight / (color ? 1 : 2)),
+				m_IconWidth, m_IconHeight);
+		}
+		if (info.hbmColor)
+		{
+			DeleteObject(info.hbmColor);
+		}
+		if (info.hbmMask)
+		{
+			DeleteObject(info.hbmMask);
 		}
 	}
 }
