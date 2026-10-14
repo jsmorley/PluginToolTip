@@ -88,7 +88,7 @@ they do not apply a bitmap bevel to the tooltip background, text, or icons.
 | [SP]20[/SP]Command[SP]20[/SP] | Result |
 | --- | --- |
 | `Show` | Opens at the mouse position after the configured delay. |
-| `Show x y` | Opens using an anchor relative to the skin's upper-left corner, in skin units. Coordinates scale with Windows DPI and Rainmeter zoom; negative and fractional values are supported. |
+| `Show x y` | Opens using an anchor relative to the skin's upper-left corner, in skin units. Coordinates scale with Windows DPI and Rainmeter zoom; negative and fractional values are supported. The tail of a balloon tooltip attempts to stay at these coordinates as long as FollowMouse is not set. |
 | `Hide` or `Dismiss` | Immediately closes this instance and cancels a pending display. |
 | `Toggle` or `Toggle x y` | Closes this instance if requested/open; otherwise behaves like Show. |
 | `Update` | Resolves the current options/text and redraws this instance immediately if open. |
@@ -392,7 +392,8 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `DismissOnClick` | `1` | A new left/right mouse press dismisses requested/open tooltips. With 0, ordinary clicks do not dismiss them, but opening this skin's context menu always dismisses an open tooltip or cancels a pending display. This also applies to keyboard- or bang-opened skin menus; menus owned by other windows do not override this setting. |
 | `NoFade` | `0` | 1 disables fade-in. |
 
-With Position=Absolute, Show x y gives the popup's top-left position relative to the skin. With plain Show,
+With Position=Absolute, Show x y gives the popup's top-left position relative to the skin,
+except for a balloon with FollowMouse=0, where it anchors the tail. With plain Show,
 OffsetX/OffsetY are the absolute top-left coordinates, scaled from skin units. Other positions
 treat Show x y as an anchor. Balloons point their tail toward the anchor vertically.
 For Auto/Below/Above balloon positioning, the body shifts left to align its tail
@@ -407,8 +408,9 @@ entire width on the selected side, with the absolute OffsetX as the horizontal g
 Balloons place the body on the selected side with their tail aligned to the anchor;
 the tail and rounded corner leave a small portion of the window across the anchor.
 For pairs, the absolute OffsetX moves the body farther toward the selected side.
-OffsetY/TailGap retain their usual vertical behavior. Explicit Above/Below pairs do
-not automatically flip; KeepOnScreen can still clamp them to the monitor's work area.
+With mouse anchors, OffsetY/TailGap retain their usual vertical behavior. Explicit Above/Below pairs do
+not automatically flip, except for a balloon tail anchored by Show x y with FollowMouse=0;
+KeepOnScreen can still clamp them to the monitor's work area.
 Invalid pairs log a warning and fall back to Auto.
 
 For a balloon just below and to the right of the cursor:

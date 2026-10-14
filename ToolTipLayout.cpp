@@ -101,6 +101,11 @@ void ToolTipMeasure::UpdateLayout()
 
 POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 {
+	if (IsTailAnchored())
+	{
+		return GetAnchoredBalloonPosition(size);
+	}
+
 	const bool verticalBalloon = m_Options.balloon &&
 		(m_Options.position == L"auto" || m_Options.position == L"above" ||
 			m_Options.position == L"below");
@@ -197,6 +202,71 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 		p.y = std::clamp(p.y, work.top, std::max(work.top, work.bottom - size.cy));
 	}
 	return p;
+}
+
+POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size)
+{
+	MONITORINFO monitor{sizeof(monitor)};
+	GetMonitorInfoW(MonitorFromPoint(m_Anchor, MONITOR_DEFAULTTONEAREST), &monitor);
+	const RECT& work = monitor.rcWork;
+	const float inset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
+	const float radius = std::min({m_Options.radius, std::max(0.0f, m_BodyWidth - 2 * inset) / 2,
+		std::max(0.0f, m_BodyHeight - 2 * inset) / 2});
+	const auto tipTop = static_cast<LONG>(std::round(inset * m_Scale));
+	const auto tipBottom =
+		static_cast<LONG>(std::round((m_BodyHeight + m_TailHeight - inset) * m_Scale));
+	const LONG below = m_Anchor.y - tipTop;
+	const LONG above = m_Anchor.y - tipBottom;
+	bool placeAbove = m_Options.position == L"above";
+
+	// Above/Below select the preferred side. Flip before clamping the window so
+	// fitting on the monitor does not unnecessarily move the tail's fixed point.
+	if (m_Options.keepOnScreen)
+	{
+		auto fits = [&](LONG top) { return top >= work.top && top + size.cy <= work.bottom; };
+		if (!fits(placeAbove ? above : below))
+		{
+			if (fits(placeAbove ? below : above))
+			{
+				placeAbove = !placeAbove;
+			}
+			else
+			{
+				// An oversized tooltip or an off-screen anchor cannot fit exactly.
+				// Prefer the side with more space, then keep as much visible as possible.
+				placeAbove = m_Anchor.y - work.top > work.bottom - m_Anchor.y;
+			}
+		}
+	}
+
+	const auto tailInset = static_cast<LONG>(std::ceil((inset + radius + 9) * m_Scale));
+	const auto xOffset = static_cast<LONG>(m_Options.offsetX * m_Scale);
+	POINT position{m_Anchor.x - tailInset + xOffset, placeAbove ? above : below};
+	if (m_Options.horizontalPosition == L"left" || m_Options.position == L"left")
+	{
+		position.x = m_Anchor.x - size.cx + tailInset - std::abs(xOffset);
+	}
+	else if (m_Options.horizontalPosition == L"right" || m_Options.position == L"right")
+	{
+		position.x = m_Anchor.x - tailInset + std::abs(xOffset);
+	}
+
+	// OffsetX shifts the body, not the anchor. Keep the point within the bitmap;
+	// the tail's base may slide away from it to clear a rounded corner.
+	const auto tipRight =
+		std::max(tipTop, static_cast<LONG>(std::round((m_BodyWidth - inset) * m_Scale)));
+	position.x = std::clamp(position.x, m_Anchor.x - tipRight, m_Anchor.x - tipTop);
+	if (m_Options.keepOnScreen)
+	{
+		position.x = std::clamp(position.x, work.left, std::max(work.left, work.right - size.cx));
+		if (size.cy <= work.bottom - work.top)
+		{
+			position.y = std::clamp(position.y, work.top, work.bottom - size.cy);
+		}
+	}
+	m_Attachment = m_Anchor;
+	m_TailTop = !placeAbove;
+	return position;
 }
 
 D2D1_POINT_2F ToolTipMeasure::GetCloseButtonOrigin() const

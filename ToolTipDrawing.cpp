@@ -255,6 +255,11 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			{m_Options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
 		float tx = std::clamp((m_Attachment.x - m_Origin.x) / m_Scale, body.left + r + 9,
 			std::max(body.left + r + 9, body.right - r - 9));
+		// A skin-relative tail point stays anchored even when the window is moved
+		// away from a screen edge. Only its base must clear the rounded corners.
+		const float tipX = IsTailAnchored() ? std::clamp((m_Attachment.x - m_Origin.x) / m_Scale,
+												  body.left, std::max(body.left, body.right))
+											: tx;
 		ComPtr<ID2D1PathGeometry> geometry;
 		ComPtr<ID2D1GeometrySink> sink;
 		ToolTip::GetGraphicsResources().factory->CreatePathGeometry(geometry.GetAddressOf());
@@ -264,7 +269,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			if (m_TailTop)
 			{
 				sink->AddLine(D2D1::Point2F(tx - 8, body.top));
-				sink->AddLine(D2D1::Point2F(tx, inset));
+				sink->AddLine(D2D1::Point2F(tipX, inset));
 				sink->AddLine(D2D1::Point2F(tx + 8, body.top));
 			}
 			sink->AddLine(D2D1::Point2F(body.right - r, body.top));
@@ -276,7 +281,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			if (!m_TailTop)
 			{
 				sink->AddLine(D2D1::Point2F(tx + 8, body.bottom));
-				sink->AddLine(D2D1::Point2F(tx, m_BodyHeight + m_TailHeight - inset));
+				sink->AddLine(D2D1::Point2F(tipX, m_BodyHeight + m_TailHeight - inset));
 				sink->AddLine(D2D1::Point2F(tx - 8, body.bottom));
 			}
 			sink->AddLine(D2D1::Point2F(body.left + r, body.bottom));

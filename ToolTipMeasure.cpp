@@ -354,9 +354,14 @@ void ToolTipMeasure::Command(LPCWSTR args)
 		D2D1_POINT_2F relative{};
 		if (fixed)
 		{
-			double x, y;
-			if (!(input >> x >> y) || !std::isfinite(x) || !std::isfinite(y) ||
-				std::abs(x) > 100000 || std::abs(y) > 100000)
+			double x = 0, y = 0;
+			input >> x >> std::ws;
+			if (input.peek() == L',')
+			{
+				input.get();
+			}
+			if (!(input >> y) || !std::isfinite(x) || !std::isfinite(y) || std::abs(x) > 100000 ||
+				std::abs(y) > 100000)
 			{
 				RmLog(m_Rm, LOG_WARNING,
 					L"ToolTip: Show expects zero arguments or two skin-relative coordinates");

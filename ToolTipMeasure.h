@@ -37,6 +37,8 @@ private:
 	D2D1_RECT_F GetTextRect(float top) const;
 	void UpdateLayout();
 	POINT GetWindowPosition(SIZE size);
+	POINT GetAnchoredBalloonPosition(SIZE size);
+	bool IsTailAnchored() const { return m_FixedAnchor && m_Options.balloon && !m_Options.follow; }
 	void DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat);
 	D2D1_POINT_2F GetCloseButtonOrigin() const;
 	bool Draw(BYTE opacity = 255);
