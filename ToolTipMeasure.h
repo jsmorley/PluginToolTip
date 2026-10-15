@@ -35,6 +35,8 @@ private:
 	bool InitializeGraphics();
 	void LoadFonts();
 	D2D1_RECT_F GetTextRect(float top) const;
+	D2D1_RECT_F GetIconRect(float top) const;
+	void SelectTail(bool top);
 	void UpdateLayout();
 	POINT GetWindowPosition(SIZE size);
 	POINT GetAnchoredBalloonPosition(SIZE size, POINT below, POINT above);
@@ -90,6 +92,8 @@ private:
 	float m_Scale = 1;
 	float m_BodyWidth = 1;
 	float m_BodyHeight = 1;
+	float m_TopTailBodyHeight = 1;
+	float m_BottomTailBodyHeight = 1;
 	float m_HeaderHeight = 0;
 	float m_TailHeight = 0;
 	D2D1_SIZE_F m_TitleSize{};

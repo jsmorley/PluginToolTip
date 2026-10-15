@@ -59,6 +59,21 @@ D2D1_RECT_F ToolTipMeasure::GetTextRect(float top) const
 		left, textTop, left + m_TextLayoutSize.width, textTop + m_TextLayoutSize.height);
 }
 
+D2D1_RECT_F ToolTipMeasure::GetIconRect(float top) const
+{
+	const float x = m_Options.padding[0] + m_Options.borderWidth;
+	const float y = m_Options.title.empty() ? GetTextRect(top).top
+											: top + m_Options.padding[1] + m_Options.borderWidth;
+	return D2D1::RectF(x, y, x + m_IconWidth, y + m_IconHeight);
+}
+
+void ToolTipMeasure::SelectTail(bool top)
+{
+	m_TailTop = top;
+	m_BodyHeight = top ? m_TopTailBodyHeight : m_BottomTailBodyHeight;
+	m_PixelSize.cy = static_cast<LONG>(std::ceil((m_BodyHeight + m_TailHeight) * m_Scale));
+}
+
 void ToolTipMeasure::UpdateLayout()
 {
 	m_TextFormat = std::make_unique<Gfx::TextFormat>();
@@ -86,23 +101,46 @@ void ToolTipMeasure::UpdateLayout()
 	float headerW =
 		m_TitleSize.width + (m_Icon ? m_IconWidth + 6 : 0) + (m_Options.close ? 24.0f : 0);
 	m_TextLayoutSize = D2D1::SizeF(m_Options.title.empty() ? w : std::max(w, headerW), h);
-	// Reserve the positioned layout plus trailing padding/stroke. Measuring
-	// without a top tail also leaves enough room for either tail orientation.
+	m_TailHeight = m_Options.balloon ? 12.0f : 0;
+	// Horizontal coordinates are independent of the tail's orientation.
 	const auto textRect = GetTextRect(0);
 	const float headerWidth =
 		headerW + m_Options.padding[0] + m_Options.padding[2] + 2 * m_Options.borderWidth;
-	const float headerHeight =
-		rowHeight + m_Options.padding[1] + m_Options.padding[3] + 2 * m_Options.borderWidth;
 	m_BodyWidth = std::clamp(std::max(headerWidth,
 								 textRect.right + m_Options.padding[2] + m_Options.borderWidth +
 									 (m_Options.title.empty() && m_Options.close ? 24.0f : 0.0f)),
 		1.0f, 8192.0f / m_Scale);
-	m_BodyHeight = std::clamp(
-		std::max(headerHeight, textRect.bottom + m_Options.padding[3] + m_Options.borderWidth),
-		1.0f, 8192.0f / m_Scale);
-	m_TailHeight = m_Options.balloon ? 12.0f : 0;
-	m_PixelSize = {static_cast<LONG>(std::ceil(m_BodyWidth * m_Scale)),
-		static_cast<LONG>(std::ceil((m_BodyHeight + m_TailHeight) * m_Scale))};
+	auto bodyHeight = [&](float top) {
+		float bottom = top + m_Options.padding[1] + m_Options.borderWidth;
+		if (!m_Text.empty() || m_Options.height > 0)
+		{
+			bottom = std::max(bottom, GetTextRect(top).bottom);
+		}
+		if (!m_Options.title.empty())
+		{
+			bottom = std::max(bottom,
+				top + m_Options.titleY.value_or(m_Options.padding[1] + m_Options.borderWidth) +
+					m_TitleSize.height);
+		}
+		if (m_Icon)
+		{
+			bottom = std::max(bottom, GetIconRect(top).bottom);
+		}
+		if (m_Options.close)
+		{
+			bottom =
+				std::max(bottom, m_Options.closeButtonY.value_or(top + m_Options.padding[1]) + 22);
+		}
+		// TextY is a window coordinate, so subtract the top tail when converting
+		// the actual content bounds to a body height. Automatic/relative positions
+		// already include that tail in their drawing coordinates.
+		return std::clamp(
+			bottom - top + m_Options.padding[3] + m_Options.borderWidth, 1.0f, 8192.0f / m_Scale);
+	};
+	m_TopTailBodyHeight = bodyHeight(m_TailHeight);
+	m_BottomTailBodyHeight = bodyHeight(0);
+	m_PixelSize.cx = static_cast<LONG>(std::ceil(m_BodyWidth * m_Scale));
+	SelectTail(m_TailTop);
 }
 
 POINT ToolTipMeasure::GetWindowPosition(SIZE size)
@@ -111,6 +149,10 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 	{
 		return GetAnchoredBalloonPosition(size, m_Anchor, m_Anchor);
 	}
+	const LONG belowHeight =
+		static_cast<LONG>(std::ceil((m_TopTailBodyHeight + m_TailHeight) * m_Scale));
+	const LONG aboveHeight =
+		static_cast<LONG>(std::ceil((m_BottomTailBodyHeight + m_TailHeight) * m_Scale));
 
 	const bool verticalBalloon = m_Options.balloon &&
 		(m_Options.position == L"auto" || m_Options.position == L"above" ||
@@ -154,7 +196,7 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 	if (m_Options.position == L"above")
 	{
 		m_Attachment = above;
-		p = {above.x + xOffset, above.y - size.cy - std::abs(yOffset)};
+		p = {above.x + xOffset, above.y - aboveHeight - std::abs(yOffset)};
 	}
 	if (m_Options.position == L"left")
 	{
@@ -173,11 +215,13 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 	MONITORINFO monitor{sizeof(monitor)};
 	GetMonitorInfoW(MonitorFromPoint(m_Anchor, MONITOR_DEFAULTTONEAREST), &monitor);
 	auto work = monitor.rcWork;
-	if (m_Options.position == L"auto" && p.y + size.cy > work.bottom)
+	if (m_Options.position == L"auto" && p.y + belowHeight > work.bottom)
 	{
 		m_Attachment = above;
-		p = {above.x + xOffset, above.y - size.cy - std::abs(yOffset)};
+		p = {above.x + xOffset, above.y - aboveHeight - std::abs(yOffset)};
 	}
+	SelectTail(p.y >= m_Anchor.y);
+	size = m_PixelSize;
 	if (verticalBalloon)
 	{
 		const float inset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
@@ -209,7 +253,6 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 		p.x = m_Options.horizontalPosition == L"left" ? m_Anchor.x - size.cx - std::abs(xOffset)
 													  : m_Anchor.x + std::abs(xOffset);
 	}
-	m_TailTop = p.y >= m_Anchor.y;
 	if (m_Options.keepOnScreen)
 	{
 		p.x = std::clamp(p.x, work.left, std::max(work.left, work.right - size.cx));
@@ -224,11 +267,13 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 	GetMonitorInfoW(MonitorFromPoint(m_Anchor, MONITOR_DEFAULTTONEAREST), &monitor);
 	const RECT& work = monitor.rcWork;
 	const float inset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
-	const float radius = std::min({m_Options.radius, std::max(0.0f, m_BodyWidth - 2 * inset) / 2,
-		std::max(0.0f, m_BodyHeight - 2 * inset) / 2});
+	const LONG belowHeight =
+		static_cast<LONG>(std::ceil((m_TopTailBodyHeight + m_TailHeight) * m_Scale));
+	const LONG aboveHeight =
+		static_cast<LONG>(std::ceil((m_BottomTailBodyHeight + m_TailHeight) * m_Scale));
 	const auto tipTop = static_cast<LONG>(std::round(inset * m_Scale));
 	const auto tipBottom =
-		static_cast<LONG>(std::round((m_BodyHeight + m_TailHeight - inset) * m_Scale));
+		static_cast<LONG>(std::round((m_BottomTailBodyHeight + m_TailHeight - inset) * m_Scale));
 	const LONG below = belowAnchor.y - tipTop;
 	const LONG above = aboveAnchor.y - tipBottom;
 	bool placeAbove = m_Options.position == L"above";
@@ -237,10 +282,11 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 	// fitting on the monitor does not unnecessarily move the tail's fixed point.
 	if (m_Options.keepOnScreen)
 	{
-		auto fits = [&](LONG top) { return top >= work.top && top + size.cy <= work.bottom; };
-		if (!fits(placeAbove ? above : below))
+		const bool fitsAbove = above >= work.top && above + aboveHeight <= work.bottom;
+		const bool fitsBelow = below >= work.top && below + belowHeight <= work.bottom;
+		if (!(placeAbove ? fitsAbove : fitsBelow))
 		{
-			if (fits(placeAbove ? below : above))
+			if (placeAbove ? fitsBelow : fitsAbove)
 			{
 				placeAbove = !placeAbove;
 			}
@@ -252,6 +298,10 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 			}
 		}
 	}
+	SelectTail(!placeAbove);
+	size = m_PixelSize;
+	const float radius = std::min({m_Options.radius, std::max(0.0f, m_BodyWidth - 2 * inset) / 2,
+		std::max(0.0f, m_BodyHeight - 2 * inset) / 2});
 
 	const auto tailInset = static_cast<LONG>(std::ceil((inset + radius + 9) * m_Scale));
 	const auto xOffset = static_cast<LONG>(m_Options.offsetX * m_Scale);
@@ -280,7 +330,6 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 		}
 	}
 	m_Attachment = attachment;
-	m_TailTop = !placeAbove;
 	return position;
 }
 

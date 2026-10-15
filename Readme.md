@@ -238,6 +238,9 @@ Include a `viewBox` so the artwork scales to `IconW` and `IconH`; SVG's
 appears directly left of `Title` when a title is defined, or directly left of
 `Text` on the same row when no title is defined. Icons do not require a title.
 A title without text does not reserve an empty text row. Transparency is preserved.
+When there is no title, the icon follows the TextY position of the text row.
+Automatic height includes the positioned icon and text plus bottom padding;
+an absolute TextY does not reserve the top balloon tail a second time.
 These dimension options also resize standard and ICO icons.
 
 Set only `IconW` or only `IconH` to preserve the image's aspect ratio and

@@ -313,7 +313,6 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 		}
 	}
 	const float x = m_Options.padding[0] + m_Options.borderWidth;
-	const float y = top + m_Options.padding[1] + m_Options.borderWidth;
 	if (m_Icon && ToolTip::GetGraphicsResources().wic)
 	{
 		ComPtr<IWICBitmap> iconWic;
@@ -328,8 +327,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			SUCCEEDED(
 				m_Target->CreateBitmapFromWicBitmap(converted.Get(), iconBitmap.GetAddressOf())))
 		{
-			m_Target->DrawBitmap(
-				iconBitmap.Get(), D2D1::RectF(x, y, x + m_IconWidth, y + m_IconHeight));
+			m_Target->DrawBitmap(iconBitmap.Get(), GetIconRect(top));
 		}
 	}
 	const float defaultTitleX = x + (m_Icon ? m_IconWidth + 6 : 0);
