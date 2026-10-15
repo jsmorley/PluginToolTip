@@ -42,6 +42,49 @@ D2D1_SIZE_F Gfx::Canvas::Measure(
 	const auto metrics = format.GetMetrics(format.ApplyInlineCase(text, buffer), !accurate, width);
 	return D2D1::SizeF(metrics.width, metrics.height);
 }
+D2D1_RECT_F Gfx::Canvas::MeasureInk(
+	const std::wstring& text, TextFormat& format, float width, float height)
+{
+	const auto size = Measure(text, format, width, true);
+	const auto fallback = D2D1::RectF(0, 0, size.width, size.height);
+	if (!format.IsInitialized() || text.empty())
+	{
+		return fallback;
+	}
+	std::wstring buffer;
+	const auto& str = format.ApplyInlineCase(text, buffer);
+	Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+	if (FAILED(c_DWFactory->CreateTextLayout(str.data(), static_cast<UINT32>(str.size()),
+			format.m_TextFormat.Get(), width, height, layout.GetAddressOf())))
+	{
+		return fallback;
+	}
+	if (format.m_FontWeight > 0 && format.m_FontWeight < 1000)
+	{
+		layout->SetFontWeight(static_cast<DWRITE_FONT_WEIGHT>(format.m_FontWeight),
+			DWRITE_TEXT_RANGE{0, static_cast<UINT32>(str.size())});
+	}
+	format.ApplyInlineFormatting(layout.Get());
+	DWRITE_OVERHANG_METRICS ink{};
+	if (FAILED(layout->GetOverhangMetrics(&ink)))
+	{
+		return fallback;
+	}
+	// Match Draw's line-gap adjustment. Overhangs are signed distances from
+	// the layout box to the actual glyph outlines, including inline formatting.
+	float adjustment = format.m_LineGap;
+	if (format.GetVerticalAlignment() == VerticalAlignment::Center)
+	{
+		adjustment += format.m_ExtraHeight / 2;
+	}
+	else if (format.GetVerticalAlignment() == VerticalAlignment::Bottom)
+	{
+		adjustment += format.m_ExtraHeight;
+	}
+	return D2D1::RectF(-ink.left, -ink.top - adjustment, layout->GetMaxWidth() + ink.right,
+		layout->GetMaxHeight() + ink.bottom - adjustment);
+}
+
 void Gfx::Canvas::Draw(ID2D1DeviceContext* target, const std::wstring& text, TextFormat& format,
 	D2D1_RECT_F rect, D2D1_COLOR_F color, bool inlines, bool accurate)
 {

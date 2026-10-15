@@ -28,13 +28,19 @@ POINT ToolTipMeasure::GetSkinAnchor(float effectiveScale) const
 	return point;
 }
 
+float ToolTipMeasure::GetTitleY(float top) const
+{
+	return top +
+		m_Options.titleY.value_or(
+			m_Options.padding[1] + m_Options.borderWidth + m_TitleAlignmentOffset);
+}
+
 D2D1_RECT_F ToolTipMeasure::GetTextRect(float top) const
 {
 	const float x = m_Options.padding[0] + m_Options.borderWidth;
 	const float y = top + m_Options.padding[1] + m_Options.borderWidth;
 	const float titleX = m_Options.titleX.value_or(x + (m_Icon ? m_IconWidth + 6 : 0));
-	const float titleY =
-		top + m_Options.titleY.value_or(m_Options.padding[1] + m_Options.borderWidth);
+	const float titleY = GetTitleY(top);
 	auto coordinate = [&](const std::optional<ToolTip::TextCoordinate>& value, float automatic,
 						  float titleStart, float titleLength) {
 		if (!value)
@@ -53,8 +59,8 @@ D2D1_RECT_F ToolTipMeasure::GetTextRect(float top) const
 	};
 	const float automaticX = x + (m_Options.title.empty() && m_Icon ? m_IconWidth + 6 : 0);
 	const float left = coordinate(m_Options.textX, automaticX, titleX, m_TitleSize.width);
-	const float textTop =
-		coordinate(m_Options.textY, y + m_HeaderHeight, titleY, m_TitleSize.height);
+	const float textTop = coordinate(
+		m_Options.textY, y + m_HeaderHeight + m_TextAlignmentOffset, titleY, m_TitleSize.height);
 	return D2D1::RectF(
 		left, textTop, left + m_TextLayoutSize.width, textTop + m_TextLayoutSize.height);
 }
@@ -62,8 +68,12 @@ D2D1_RECT_F ToolTipMeasure::GetTextRect(float top) const
 D2D1_RECT_F ToolTipMeasure::GetIconRect(float top) const
 {
 	const float x = m_Options.padding[0] + m_Options.borderWidth;
-	const float y = m_Options.title.empty() ? GetTextRect(top).top
-											: top + m_Options.padding[1] + m_Options.borderWidth;
+	const float y = m_Options.title.empty()
+		? (m_Options.textY ? GetTextRect(top).top
+						   : top + m_Options.padding[1] + m_Options.borderWidth +
+					  std::max(0.0f, m_TextLayoutSize.height - m_IconHeight) / 2)
+		: top + m_Options.padding[1] + m_Options.borderWidth +
+			std::max(0.0f, m_TitleSize.height - m_IconHeight) / 2;
 	return D2D1::RectF(x, y, x + m_IconWidth, y + m_IconHeight);
 }
 
@@ -95,12 +105,25 @@ void ToolTipMeasure::UpdateLayout()
 	m_TitleSize = m_Options.title.empty()
 		? D2D1::SizeF()
 		: Gfx::Canvas::Measure(m_Options.title, *m_TitleFormat, 8192, true);
+	m_TitleAlignmentOffset = 0;
+	if (m_Icon && !m_Options.title.empty())
+	{
+		const auto ink = Gfx::Canvas::MeasureInk(m_Options.title, *m_TitleFormat);
+		m_TitleAlignmentOffset =
+			std::max(m_IconHeight, m_TitleSize.height) / 2 - (ink.top + ink.bottom) / 2;
+	}
 	const float rowHeight = std::max(
 		{m_TitleSize.height, m_Icon ? m_IconHeight : 0.0f, m_Options.close ? 22.0f : 0.0f});
 	m_HeaderHeight = m_Options.title.empty() ? 0 : rowHeight + (h > 0 ? 5 : 0);
 	float headerW =
 		m_TitleSize.width + (m_Icon ? m_IconWidth + 6 : 0) + (m_Options.close ? 24.0f : 0);
 	m_TextLayoutSize = D2D1::SizeF(m_Options.title.empty() ? w : std::max(w, headerW), h);
+	m_TextAlignmentOffset = 0;
+	if (m_Icon && m_Options.title.empty() && !m_Text.empty() && !m_Options.textY)
+	{
+		const auto ink = Gfx::Canvas::MeasureInk(m_Text, *m_TextFormat, m_TextLayoutSize.width, h);
+		m_TextAlignmentOffset = std::max(m_IconHeight, h) / 2 - (ink.top + ink.bottom) / 2;
+	}
 	m_TailHeight = m_Options.balloon ? 12.0f : 0;
 	// Horizontal coordinates are independent of the tail's orientation.
 	const auto textRect = GetTextRect(0);
@@ -118,9 +141,7 @@ void ToolTipMeasure::UpdateLayout()
 		}
 		if (!m_Options.title.empty())
 		{
-			bottom = std::max(bottom,
-				top + m_Options.titleY.value_or(m_Options.padding[1] + m_Options.borderWidth) +
-					m_TitleSize.height);
+			bottom = std::max(bottom, GetTitleY(top) + m_TitleSize.height);
 		}
 		if (m_Icon)
 		{

@@ -35,6 +35,7 @@ private:
 	bool InitializeGraphics();
 	void LoadFonts();
 	D2D1_RECT_F GetTextRect(float top) const;
+	float GetTitleY(float top) const;
 	D2D1_RECT_F GetIconRect(float top) const;
 	void SelectTail(bool top);
 	void UpdateLayout();
@@ -95,6 +96,8 @@ private:
 	float m_TopTailBodyHeight = 1;
 	float m_BottomTailBodyHeight = 1;
 	float m_HeaderHeight = 0;
+	float m_TitleAlignmentOffset = 0;
+	float m_TextAlignmentOffset = 0;
 	float m_TailHeight = 0;
 	D2D1_SIZE_F m_TitleSize{};
 	D2D1_SIZE_F m_TextLayoutSize{};

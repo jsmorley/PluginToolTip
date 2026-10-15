@@ -238,6 +238,11 @@ Include a `viewBox` so the artwork scales to `IconW` and `IconH`; SVG's
 appears directly left of `Title` when a title is defined, or directly left of
 `Text` on the same row when no title is defined. Icons do not require a title.
 A title without text does not reserve an empty text row. Transparency is preserved.
+The title and icon are vertically centered in their shared row, accounting for
+TitleFontSize and inline formatting. An explicit TitleY overrides automatic
+title centering. Relative TextY values use the title's actual centered position.
+When there is no title, Text is vertically centered on the icon using its
+visible glyph bounds. An explicit TextY retains manual placement.
 When there is no title, the icon follows the TextY position of the text row.
 Automatic height includes the positioned icon and text plus bottom padding;
 an absolute TextY does not reserve the top balloon tail a second time.

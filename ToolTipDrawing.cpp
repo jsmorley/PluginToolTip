@@ -332,8 +332,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	}
 	const float defaultTitleX = x + (m_Icon ? m_IconWidth + 6 : 0);
 	const float titleX = m_Options.titleX.value_or(defaultTitleX);
-	const float titleY =
-		top + m_Options.titleY.value_or(m_Options.padding[1] + m_Options.borderWidth);
+	const float titleY = GetTitleY(top);
 	if (!m_Options.title.empty())
 	{
 		const float titleWidth =
