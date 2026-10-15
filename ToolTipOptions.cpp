@@ -202,10 +202,9 @@ void Options::ReadAppearanceOptions()
 	textX = textCoordinate(L"TextX");
 	textY = textCoordinate(L"TextY");
 	effectColor = Color(Read(L"FontEffectColor", L"0,0,0,255"), D2D1::ColorF(0));
-	border = Color(Read(L"BorderColor", L"110,110,110,255"), D2D1::ColorF(0x6e6e6e));
+	border = Color(Read(L"StrokeColor", L"0,0,0,255"), D2D1::ColorF(0));
 	borderWidth = static_cast<float>(std::clamp(Number(L"BorderWidth", 1), 0.0, 32.0));
 	borderWidth = static_cast<float>(std::clamp(Number(L"StrokeSize", borderWidth), 0.0, 32.0));
-	border = Color(Read(L"StrokeColor"), border);
 	strokeBevel = Lower(Trim(Read(L"StrokeBevel", L"None")));
 	if (strokeBevel != L"none" && strokeBevel != L"raised" && strokeBevel != L"sunken")
 	{
