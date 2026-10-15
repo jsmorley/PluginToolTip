@@ -147,8 +147,7 @@ timers and do not require frequent skin updates. Redraws do not restart the time
 
 ## Appearance
 
-Color options accept `R,G,B`, `R,G,B,A`, six-digit `RRGGBB`, or eight-digit `RRGGBBAA` hex values.
-Hex colors may also have a leading `#`, for example `#ffffff` or `#00000080`.
+Color options accept `R,G,B`, `R,G,B,A`, six-digit `#RRGGBB`, or eight-digit `#RRGGBBAA` hex values.
 
 For a white-to-black background gradient, set `SolidColor=#ffffff`,
 `SolidColor2=#000000`, and optionally `GradientAngle=90` for top to bottom.
@@ -161,7 +160,7 @@ Open tooltips detect scale changes, resize their rendering buffers, and reraster
 waiting for a measure update. `Show x y` coordinates are relative to the skin's upper-left
 corner in these same scaled skin units. They follow the skin when it moves or changes scale.
 
-| [SP]20[/SP]Option[SP]20[/SP] | Default | Meaning |
+| [SP]20[/SP]Option[SP]20[/SP] | [SP]10[/SP]Default[SP]10[/SP] | Meaning |
 | --- | --- | --- |
 | `SolidColor` | `255,255,255,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
 | `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
@@ -377,7 +376,7 @@ Supported settings follow the Rainmeter String meter syntax:
 
 | [SP]20[/SP]Setting[SP]20[/SP] | Example |
 | --- | --- |
-| Face, Size, Color, Weight | `Face | Segoe UI`, `Size | 14.5`, `Color | FF8844FF`, `Weight | 700` |
+| Face, Size, Color, Weight | `Face | Segoe UI`, `Size | 14.5`, `Color | #FF8844FF`, `Weight | 700` |
 | Case | `Case | Upper` (also Lower, Proper, Sentence) |
 | CharacterSpacing | `CharacterSpacing | 2 | 2 | *` (leading, trailing, minimum advance; * leaves a value unchanged) |
 | Italic, Oblique, Underline, Strikethrough | `Underline` |
