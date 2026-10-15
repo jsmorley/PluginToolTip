@@ -60,7 +60,7 @@ struct Options
 	int clip = 2;
 	int initialDelay = 0;
 	int reshowDelay = 100;
-	int autoPopDelay = 5000;
+	int autoPopDelay = 0;
 	bool balloon = false;
 	bool close = false;
 	bool always = true;

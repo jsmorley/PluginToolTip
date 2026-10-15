@@ -260,7 +260,7 @@ void Options::ReadBehaviorOptions()
 	};
 	initialDelay = delay(L"InitialDelay", 0);
 	reshowDelay = delay(L"ReshowDelay", 100);
-	autoPopDelay = delay(L"AutoPopDelay", 5000);
+	autoPopDelay = delay(L"AutoPopDelay", 0);
 	auto flag = [&](const wchar_t* key, bool def) { return Number(key, def ? 1 : 0) != 0; };
 	balloon = flag(L"Balloon", false);
 	close = flag(L"CloseButton", false);
