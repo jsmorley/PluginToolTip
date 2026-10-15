@@ -372,6 +372,39 @@ InlinePattern2=CPU: (\d+)%
 The first rule gives the title a gradient, and the second colors the numeric CPU value in
 the body. A pattern such as `.*` applies to both values; patterns cannot span across them.
 
+### Current Title and Text references
+
+`[$Title]` and `[$Text]` insert this measure instance's current title and text
+into string options. Names are case-insensitive. `[$Text]` uses the resolved
+text after measure bindings, numeric formatting, prefix/postfix and StringCase.
+References are refreshed when shown and on each skin update while open.
+
+In `InlinePattern` and its numbered variants, references match their values
+**literally**. Parentheses, brackets, backslashes and other regex punctuation
+in a title or text do not need escaping. The rest of the pattern remains a
+regular expression, so anchors, captures and alternatives can surround a reference:
+
+```ini
+Title=Battery (68%)
+Text=Logitech [MeasureLogitechName]
+InlineSetting=GradientColor | 180 | #FF6699 ; 0 | #66CCFF ; 1
+InlinePattern=^[$Title]$
+InlineSetting2=Color | #66FF99
+InlinePattern2=^[$Text]$
+DynamicVariables=1
+```
+
+These rules format the complete current Title and Text respectively. Patterns
+still run independently against both values; identical values match both.
+An empty referenced value matches nothing, rather than formatting everything.
+Do not add regex escaping or `\Q...\E` around the references yourself.
+
+In other string options, values are inserted as plain text. References are
+local to the plugin measure, not skin-wide Rainmeter variables or numeric
+formula variables. Expansion makes one pass over each option; inserted values
+are not recursively expanded. Title/Text definitions can reference the other
+value from the same update's source snapshot without creating a recursion loop.
+
 Supported settings follow the Rainmeter String meter syntax:
 
 | [SP]20[/SP]Setting[SP]20[/SP] | Example |

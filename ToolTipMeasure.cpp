@@ -124,6 +124,9 @@ void ToolTipMeasure::Show(bool fixed, POINT point, D2D1_POINT_2F relative)
 
 void ToolTipMeasure::Display()
 {
+	// Resolve option references together at display time, including after an
+	// InitialDelay during which the skin's measures may have changed.
+	ReadOptions();
 	m_Text = m_Options.ResolveText();
 	ReadIcon();
 	if (m_Text.empty() && m_Options.title.empty())

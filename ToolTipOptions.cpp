@@ -10,7 +10,69 @@ namespace ToolTip {
 
 std::wstring Options::Read(const wchar_t* key, const wchar_t* fallback) const
 {
-	return RmReadString(m_Rm, key, fallback);
+	const std::wstring value = RmReadString(m_Rm, key, fallback);
+	return m_ReferencesReady
+		? ExpandReferences(value, std::wstring_view(key).find(L"InlinePattern") == 0)
+		: value;
+}
+
+std::wstring Options::ExpandReferences(const std::wstring& value, bool pattern) const
+{
+	auto replacement = [&](const std::wstring& source) {
+		if (!pattern)
+		{
+			return source;
+		}
+		if (source.empty())
+		{
+			// An absent value must not turn an empty InlinePattern into its
+			// usual match-all default, or add an empty alternative to a regex.
+			return std::wstring(L"(?!)");
+		}
+		std::wstring quoted = L"\\Q";
+		for (size_t i = 0; i < source.size(); ++i)
+		{
+			if (source[i] == L'\\' && i + 1 < source.size() && source[i + 1] == L'E')
+			{
+				quoted += L"\\E\\\\E\\Q";
+				++i;
+			}
+			else
+			{
+				quoted += source[i];
+			}
+		}
+		return quoted + L"\\E";
+	};
+	std::wstring expanded;
+	for (size_t i = 0; i < value.size();)
+	{
+		const std::wstring* source = nullptr;
+		size_t length = 0;
+		if (value[i] == L'[' && i + 1 < value.size() && value[i + 1] == L'$')
+		{
+			if (_wcsnicmp(value.c_str() + i, L"[$Title]", 8) == 0)
+			{
+				source = &m_TitleReference;
+				length = 8;
+			}
+			else if (_wcsnicmp(value.c_str() + i, L"[$Text]", 7) == 0)
+			{
+				source = &m_TextReference;
+				length = 7;
+			}
+		}
+		if (source)
+		{
+			expanded += replacement(*source);
+			i += length;
+		}
+		else
+		{
+			expanded += value[i++];
+		}
+	}
+	return expanded;
 }
 double Options::Number(const wchar_t* key, double fallback) const
 {
@@ -20,7 +82,22 @@ double Options::Number(const wchar_t* key, double fallback) const
 void Options::Load(void* context)
 {
 	m_Rm = context;
+	m_ReferencesReady = false;
+	text = Read(L"Text");
+	title = Read(L"Title");
 	ReadTextOptions();
+	m_TitleReference = title;
+	m_TextReference = ReadResolvedText();
+	// Freeze one snapshot for this measure/update. Expand source references once
+	// without recursively scanning the inserted values or retaining old values.
+	title = ExpandReferences(title);
+	text = ExpandReferences(m_TextReference);
+	m_TitleReference = title;
+	m_TextReference = text;
+	m_ReferencesReady = true;
+	ReadTextOptions();
+	text = ApplyStringCase(std::move(text));
+	m_TextReference = text;
 	ReadSizeOptions();
 	ReadAppearanceOptions();
 	ReadPlacementOptions();
@@ -30,8 +107,6 @@ void Options::Load(void* context)
 
 void Options::ReadTextOptions()
 {
-	text = Read(L"Text");
-	title = Read(L"Title");
 	face = Read(L"FontFace", L"Arial");
 	style = Lower(Read(L"StringStyle", L"Normal"));
 	align = Lower(Read(L"StringAlign", L"Left"));
@@ -224,6 +299,11 @@ void Options::ReadInlineOptions()
 
 std::wstring Options::ResolveText() const
 {
+	return text;
+}
+
+std::wstring Options::ReadResolvedText() const
+{
 	auto result = Read(L"Text", Read(L"MeasureName").empty() ? L"" : L"%1");
 	auto scale = Number(L"Scale", 1);
 	if (scale == 0)
@@ -330,19 +410,24 @@ std::wstring Options::ResolveText() const
 	{
 		result = Trim(result);
 	}
+	return ApplyStringCase(std::move(result));
+}
+
+std::wstring Options::ApplyStringCase(std::wstring value) const
+{
 	if (stringCase == L"upper")
 	{
-		StringUtil::ToUpperCase(result.data(), result.size());
+		StringUtil::ToUpperCase(value.data(), value.size());
 	}
 	if (stringCase == L"lower")
 	{
-		StringUtil::ToLowerCase(result.data(), result.size());
+		StringUtil::ToLowerCase(value.data(), value.size());
 	}
 	if (stringCase == L"proper")
 	{
-		StringUtil::ToProperCase(result.data(), result.size());
+		StringUtil::ToProperCase(value.data(), value.size());
 	}
-	return result;
+	return value;
 }
 void Options::Configure(Gfx::TextFormat& format, Gfx::FontCollection* fonts,
 	const std::wstring& resolved, bool heading) const

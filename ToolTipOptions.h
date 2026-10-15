@@ -82,6 +82,12 @@ struct Options
 
 private:
 	void* m_Rm = nullptr;
+	bool m_ReferencesReady = false;
+	std::wstring m_TitleReference;
+	std::wstring m_TextReference;
+	std::wstring ExpandReferences(const std::wstring& value, bool pattern = false) const;
+	std::wstring ReadResolvedText() const;
+	std::wstring ApplyStringCase(std::wstring value) const;
 	void ReadTextOptions();
 	void ReadSizeOptions();
 	void ReadAppearanceOptions();
