@@ -379,18 +379,17 @@ into string options. Names are case-insensitive. `[$Text]` uses the resolved
 text after measure bindings, numeric formatting, prefix/postfix and StringCase.
 References are refreshed when shown and on each skin update while open.
 
-In `InlinePattern` and its numbered variants, references match their values
+In `InlinePattern` and its numbered variants, these variables match their values
 **literally**. Parentheses, brackets, backslashes and other regex punctuation
-in a title or text do not need escaping. The rest of the pattern remains a
-regular expression, so anchors, captures and alternatives can surround a reference:
+in a title or text do not need escaping.
 
 ```ini
 Title=Battery (68%)
 Text=Logitech [MeasureLogitechName]
 InlineSetting=GradientColor | 180 | #FF6699 ; 0 | #66CCFF ; 1
-InlinePattern=^[$Title]$
+InlinePattern=[$Title]
 InlineSetting2=Color | #66FF99
-InlinePattern2=^[$Text]$
+InlinePattern2=[$Text]
 DynamicVariables=1
 ```
 
