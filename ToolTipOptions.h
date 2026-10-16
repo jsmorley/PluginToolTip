@@ -5,9 +5,31 @@
 #include "../../API/RainmeterAPI.h"
 #include "vendor/Gfx/Canvas.h"
 #include <string>
+#include <array>
 #include "ToolTipParser.h"
 
 namespace ToolTip {
+struct ImageCrop
+{
+	float x = 0;
+	float y = 0;
+	float width = 0;
+	float height = 0;
+	int origin = 1;
+	bool operator==(const ImageCrop&) const = default;
+};
+
+struct BackgroundImageOptions
+{
+	std::wstring path;
+	std::optional<ImageCrop> crop;
+	std::array<float, 4> tint = {1, 1, 1, 1};
+	int flip = 0;
+	float rotate = 0;
+	bool greyscale = false;
+	bool operator==(const BackgroundImageOptions&) const = default;
+};
+
 struct Options
 {
 	// Parsed skin options are a value snapshot consumed by layout and drawing.
@@ -73,6 +95,7 @@ struct Options
 	bool backgroundGradient = false;
 	bool topmost = true;
 	std::vector<Gfx::TextInlineOption> inlines;
+	BackgroundImageOptions image;
 	std::wstring Read(const wchar_t* key, const wchar_t* fallback = L"") const;
 	double Number(const wchar_t* key, double fallback) const;
 	void Load(void* context);
@@ -91,6 +114,7 @@ private:
 	void ReadTextOptions();
 	void ReadSizeOptions();
 	void ReadAppearanceOptions();
+	void ReadImageOptions();
 	void ReadPlacementOptions();
 	void ReadBehaviorOptions();
 	void ReadInlineOptions();

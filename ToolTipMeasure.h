@@ -33,6 +33,8 @@ private:
 	HICON LoadSvgIcon(const std::wstring& source);
 	void ReadIcon();
 	bool InitializeGraphics();
+	void ReadBackgroundImage();
+	Microsoft::WRL::ComPtr<ID2D1Bitmap1> LoadBackgroundImage();
 	void LoadFonts();
 	D2D1_RECT_F GetTextRect(float top) const;
 	float GetTitleY(float top) const;
@@ -52,7 +54,8 @@ private:
 	}
 	void DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat);
 	D2D1_POINT_2F GetCloseButtonOrigin() const;
-	bool DrawBalloon(const D2D1_RECT_F& body, ID2D1Brush* background, ID2D1Brush* stroke);
+	bool DrawBalloon(const D2D1_RECT_F& body, ID2D1Brush* background, ID2D1Brush* stroke,
+		ID2D1Brush* image = nullptr);
 	bool Draw(BYTE opacity = 255);
 	void Show(bool fixed, POINT point, D2D1_POINT_2F relative = {});
 	void Display();
@@ -112,6 +115,8 @@ private:
 	Microsoft::WRL::ComPtr<ID2D1DeviceContext> m_Target;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Bitmap;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Staging;
+	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_BackgroundImage;
+	std::optional<ToolTip::BackgroundImageOptions> m_LoadedBackgroundImage;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_OutlineBitmap;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_OutlineIntermediate;
 	std::unique_ptr<Gfx::FontCollection> m_Fonts;

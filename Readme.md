@@ -149,8 +149,6 @@ timers and do not require frequent skin updates. Redraws do not restart the time
 
 Color options accept `R,G,B`, `R,G,B,A`, six-digit `#RRGGBB`, or eight-digit `#RRGGBBAA` hex values.
 
-For a white-to-black background gradient, set `SolidColor=#ffffff`,
-`SolidColor2=#000000`, and optionally `GradientAngle=90` for top to bottom.
 Lengths below are skin units; the plugin uses the skin's effective DPI/zoom scale when supported
 by the Rainmeter API, including Windows display scaling and Rainmeter zoom exactly once.
 The plugin exports HandleSkinSettingChange to declare DPI awareness to Rainmeter, preventing
@@ -162,10 +160,6 @@ corner in these same scaled skin units. They follow the skin when it moves or ch
 
 | [SP]20[/SP]Option[SP]20[/SP] | [SP]10[/SP]Default[SP]10[/SP] | Meaning |
 | --- | --- | --- |
-| `SolidColor` | `255,255,255,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
-| `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
-| `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
-| `LinearGradient` | unset | Shape-style background definition: `Angle | Color ; Position | Color ; Position ...`. Takes precedence over SolidColor, SolidColor2 and GradientAngle when valid. Applies across the entire tooltip, including the heading and balloon tail. |
 | `StrokeSize` | `1` | Outer outline width in skin units, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. Straight outer edges align to the physical pixel grid for crisp opaque strokes at whole-pixel widths; fractional widths, curves and the tail remain antialiased. |
 | `StrokeColor` | `0,0,0,255` | Color of the outer outline; defaults to opaque black. |
 | `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` uses a light top/left and dark bottom/right border; `Sunken` reverses them. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
@@ -213,6 +207,106 @@ corner in these same scaled skin units. They follow the skin when it moves or ch
 The tooltip is a separate popup rather than a meter. Its W/H describe the content box and
 StringAlign describes alignment inside that box. General meter placement, transformations,
 containers, meter actions, and meter groups are not tooltip layout options. Shadows can extend outside the calculated layout; provide sufficient padding/size.
+
+## ToolTip Background
+
+These options control the fill behind the tooltip's contents, including its padding
+and balloon tail. Background images are drawn over the solid color or gradient;
+transparent parts of the image let that underlying fill show through. The stroke
+and all tooltip contents are drawn above the background.
+
+### Solid colors and gradients
+
+| [SP]20[/SP]Option[SP]20[/SP] | [SP]10[/SP]Default[SP]10[/SP] | Meaning |
+| --- | --- | --- |
+| `SolidColor` | `255,255,255,255` | Background for the **entire tooltip**, including title/icon area, padding, and balloon tail. Alpha is supported. |
+| `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
+| `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
+| `LinearGradient` | unset | Shape-style background definition: `Angle | Color ; Position | Color ; Position ...`. Takes precedence over SolidColor, SolidColor2 and GradientAngle when valid. Applies across the entire tooltip, including the heading and balloon tail. |
+
+For a white-to-black background gradient, set `SolidColor=#ffffff`,
+`SolidColor2=#000000`, and optionally `GradientAngle=90` for top to bottom.
+
+### Background gradients with multiple stops
+
+`LinearGradient` accepts an angle followed by one or more color stops, with up to 256 stops:
+
+```ini
+LinearGradient=180 | #FF0000 ; 0.0 | #00FF00 ; 0.5 | #0000FF ; 1.0
+```
+
+This creates a left-to-right red-to-green-to-blue background. RGB/RGBA colors and hex colors
+with or without a leading `#` are supported, including transparency. Unlike the existing
+`GradientAngle` option, this option follows the Shape meter's angle convention:
+
+| Angle | Direction from first stop to last stop |
+| --- | --- |
+| 0 or 360 | Right to left |
+| 90 | Bottom to top |
+| 180 | Left to right |
+| 270 | Top to bottom |
+
+Angles wrap around 360 degrees. Stops are sorted by position, retaining their specified order
+when positions are equal (use equal positions for abrupt transitions). Positions normally range
+from 0.0 to 1.0; values outside that range are preserved and affect interpolation within the
+visible range. A single stop produces a uniform color.
+
+For a glossy glass-like surface, try a translucent highlight near the top:
+
+```ini
+LinearGradient=270 | #D6F3FFB0 ; 0 | #8ABBEA70 ; 0.28 | #263C60D0 ; 0.3 | #142542E8 ; 1
+```
+
+The definition is resolved again on every update while the tooltip is open, so it supports
+variables with `DynamicVariables=1`. An empty or invalid definition falls back to the existing
+SolidColor/SolidColor2/GradientAngle settings; invalid definitions also log a warning. The legacy
+gradient's angle convention remains unchanged.
+
+### Background images
+
+| [SP]20[/SP]Option[SP]20[/SP] | [SP]10[/SP]Default[SP]10[/SP] | Meaning |
+| --- | --- | --- |
+| `BackgroundImage` | unset | Image file path, relative to the skin or absolute. Stretched over the entire tooltip, including the balloon tail, and clipped to its outline. Drawn over SolidColor / the background gradient and beneath the stroke and contents. Does not change tooltip sizing. If the extension is omitted, `.png` is assumed. |
+| `ImageCrop` | unset | Source-image crop in pixels: `X,Y,W,H[,Origin]`. Positive W/H are required. Origin is `1` top left (default), `2` top right, `3` bottom right, `4` bottom left, or `5` center; X/Y are offsets from that origin. Regions outside the image are transparent. Applied before resizing. |
+| `ImageTint` | `255,255,255,255` | Multiplies the image's red, green, blue and alpha channels by the specified color. White leaves it unchanged; an alpha below 255 makes it translucent. Supports RGB/RGBA and leading-`#` hex colors. Affects BackgroundImage only. |
+| `ImageFlip` | `None` | `None`, `Horizontal`, `Vertical`, or `Both`, case-insensitive. Applied before ImageRotate. |
+| `Greyscale` | `0` | `1` desaturates BackgroundImage before ImageTint is applied. Combine with ImageTint to recolor an image. Option names are case-insensitive, so `GreyScale` is also accepted. |
+| `ImageRotate` | `0` | Clockwise rotation in degrees; negative values rotate counter-clockwise. The full rotated image, including transparent corners, is then stretched to the tooltip's dimensions. Does not rotate the tooltip or its contents. |
+
+Background image transforms follow Rainmeter's order: **crop, greyscale, tint, flip,
+rotate, then resize**. See Rainmeter's [general image options](https://docs.rainmeter.net/manual/meters/general-options/image-options/).
+The image is decoded using Windows Imaging Component (for example PNG, JPEG, BMP,
+GIF's first frame, TIFF and ICO; other formats depend on installed Windows codecs).
+Transparent image areas show the existing SolidColor or background gradient. Text and
+icons keep their existing rendering and are not tinted, flipped or rotated by these options.
+
+```ini
+[ToolTip]
+Measure=Plugin
+Plugin=ToolTip
+Title=Background image
+Text=The text and icon keep their normal colors.
+BackgroundImage=#@#Images\Background.png
+ImageCrop=-160,-90,320,180,5
+Greyscale=1
+ImageTint=80,160,255,220
+ImageFlip=Horizontal
+ImageRotate=15
+SolidColor=20,25,35,255
+FontColor=255,255,255,255
+Balloon=1
+W=240
+H=90
+```
+
+The decoded/transformed image is cached for each open measure instance. Changes to
+these options take effect on the next skin update or `Update` command; moving the
+mouse does not reload the file. To reload changed file contents at the same path,
+hide and show the tip or refresh the skin. Image resources are released when the tip
+closes. Missing or invalid files log a warning once per image-option change/show and
+fall back to the existing background. Invalid ImageCrop values log a warning and use
+the full image. Decoded and transformed images are limited to 16,777,216 pixels each
+and the graphics device's maximum bitmap dimensions.
 
 ## SVG icons
 
@@ -285,41 +379,6 @@ attributes such as `fill` and `stroke`; scripts, animation, text, CSS stylesheet
 filters and external image references are unsupported. Convert text to paths.
 Invalid/unreadable SVGs log a warning and the tooltip continues without an icon.
 SVG documents are limited to 16 MiB.
-
-### Background gradients with multiple stops
-
-`LinearGradient` accepts an angle followed by one or more color stops, with up to 256 stops:
-
-```ini
-LinearGradient=180 | #FF0000 ; 0.0 | #00FF00 ; 0.5 | #0000FF ; 1.0
-```
-
-This creates a left-to-right red-to-green-to-blue background. RGB/RGBA colors and hex colors
-with or without a leading `#` are supported, including transparency. Unlike the existing
-`GradientAngle` option, this option follows the Shape meter's angle convention:
-
-| Angle | Direction from first stop to last stop |
-| --- | --- |
-| 0 or 360 | Right to left |
-| 90 | Bottom to top |
-| 180 | Left to right |
-| 270 | Top to bottom |
-
-Angles wrap around 360 degrees. Stops are sorted by position, retaining their specified order
-when positions are equal (use equal positions for abrupt transitions). Positions normally range
-from 0.0 to 1.0; values outside that range are preserved and affect interpolation within the
-visible range. A single stop produces a uniform color.
-
-For a glossy glass-like surface, try a translucent highlight near the top:
-
-```ini
-LinearGradient=270 | #D6F3FFB0 ; 0 | #8ABBEA70 ; 0.28 | #263C60D0 ; 0.3 | #142542E8 ; 1
-```
-
-The definition is resolved again on every update while the tooltip is open, so it supports
-variables with `DynamicVariables=1`. An empty or invalid definition falls back to the existing
-SolidColor/SolidColor2/GradientAngle settings; invalid definitions also log a warning. The legacy
-gradient's angle convention remains unchanged.
 
 ### Title, text and close-button positioning
 
@@ -513,6 +572,7 @@ dependencies.
 | `ToolTipDrawing.cpp` | Tooltip background, gradients, strokes and bevels, title/body drawing, and layered-window presentation. |
 | `ToolTipGraphics.h`, `ToolTipGraphics.cpp` | Shared graphics device resources and creation of each instance's drawing context. |
 | `ToolTipIcon.cpp` | Standard icons, icon files, and SVG loading/rasterization. |
+| `ToolTipImage.cpp` | Background image decoding, crop origins, greyscale/tint, flip/rotation, and per-instance caching. |
 | `ToolTipOptions.h`, `ToolTipOptions.cpp` | Parsed option snapshot, grouped option readers, measure substitutions, and text-format configuration. |
 | `ToolTipParser.h`, `ToolTipParser.cpp` | Colors, gradient stops, inline settings, and bounded PCRE matching. |
 | `CursorAttachment.h`, `CursorAttachment.cpp` | Visible cursor bounds relative to its hotspot. |

@@ -151,7 +151,7 @@ void ToolTipMeasure::DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body,
 }
 
 bool ToolTipMeasure::DrawBalloon(
-	const D2D1_RECT_F& body, ID2D1Brush* background, ID2D1Brush* stroke)
+	const D2D1_RECT_F& body, ID2D1Brush* background, ID2D1Brush* stroke, ID2D1Brush* image)
 {
 	const float tipInset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
 	float r =
@@ -208,7 +208,18 @@ bool ToolTipMeasure::DrawBalloon(
 		return false;
 	}
 	ComPtr<ID2D1DeviceContext1> additive;
-	if (SUCCEEDED(m_Target.As(&additive)))
+	if (image)
+	{
+		// Composite the image over the existing fill before applying the shape's
+		// antialiased mask once, including the tail and transparent image pixels.
+		m_Target->PushLayer(
+			D2D1::LayerParameters1(D2D1::InfiniteRect(), silhouette.Get()), nullptr);
+		const auto area = D2D1::RectF(0, 0, m_PixelSize.cx / m_Scale, m_PixelSize.cy / m_Scale);
+		m_Target->FillRectangle(area, background);
+		m_Target->FillRectangle(area, image);
+		m_Target->PopLayer();
+	}
+	else if (SUCCEEDED(m_Target.As(&additive)))
 	{
 		// The body and triangle share an edge without overlapping. Add their
 		// coverage so a translucent background has no seam across that edge.
@@ -288,6 +299,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	{
 		return false;
 	}
+	ReadBackgroundImage();
 	UpdateLayout();
 	m_Origin = GetWindowPosition(m_PixelSize);
 	auto props = D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET,
@@ -405,9 +417,19 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	// A one-pixel stroke fully covers its straight edges; curves and diagonals
 	// retain antialiasing, as do the partial pixels of fractional stroke widths.
 	const auto body = GetBodyRect(top);
+	ComPtr<ID2D1BitmapBrush> image;
+	if (m_BackgroundImage)
+	{
+		const auto size = m_BackgroundImage->GetSize();
+		m_Target->CreateBitmapBrush(m_BackgroundImage.Get(), D2D1::BitmapBrushProperties(),
+			D2D1::BrushProperties(1,
+				D2D1::Matrix3x2F::Scale(
+					m_PixelSize.cx / m_Scale / size.width, m_PixelSize.cy / m_Scale / size.height)),
+			image.GetAddressOf());
+	}
 	if (m_Options.balloon)
 	{
-		if (!DrawBalloon(body, background.Get(), stroke.Get()))
+		if (!DrawBalloon(body, background.Get(), stroke.Get(), image.Get()))
 		{
 			m_Target->EndDraw();
 			m_Target->SetTarget(nullptr);
@@ -417,6 +439,10 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	else
 	{
 		m_Target->FillRectangle(body, background.Get());
+		if (image)
+		{
+			m_Target->FillRectangle(body, image.Get());
+		}
 		if (m_Options.borderWidth > 0)
 		{
 			ComPtr<ID2D1RectangleGeometry> rectangle;

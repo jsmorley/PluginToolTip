@@ -179,6 +179,7 @@
     <ClCompile Include="ToolTipMeasure.cpp" />
     <ClCompile Include="ToolTipGraphics.cpp" />
     <ClCompile Include="ToolTipIcon.cpp" />
+    <ClCompile Include="ToolTipImage.cpp" />
     <ClCompile Include="ToolTipLayout.cpp" />
     <ClCompile Include="ToolTipDrawing.cpp" />
     <ClCompile Include="ToolTipParser.cpp" />

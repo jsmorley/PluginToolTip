@@ -100,6 +100,7 @@ void Options::Load(void* context)
 	m_TextReference = text;
 	ReadSizeOptions();
 	ReadAppearanceOptions();
+	ReadImageOptions();
 	ReadPlacementOptions();
 	ReadBehaviorOptions();
 	ReadInlineOptions();
@@ -230,6 +231,54 @@ void Options::ReadAppearanceOptions()
 	bevelSmoothness = static_cast<float>(std::clamp(Number(L"StrokeBevelSmoothness", 0), 0.0, 1.0));
 	bevelAngle = static_cast<float>(std::fmod(Number(L"StrokeBevelLightAngle", 225), 360.0));
 	radius = static_cast<float>(std::clamp(Number(L"CornerRadius", 6), 0.0, 256.0));
+}
+
+void Options::ReadImageOptions()
+{
+	image = {};
+	image.path = Trim(Read(L"BackgroundImage"));
+	if (!image.path.empty())
+	{
+		image.path = RmPathToAbsolute(m_Rm, image.path.c_str());
+	}
+	const auto tint = Color(Read(L"ImageTint", L"255,255,255,255"), D2D1::ColorF(0xffffff));
+	image.tint = {tint.r, tint.g, tint.b, tint.a};
+	image.greyscale = Number(L"Greyscale", 0) != 0;
+	image.rotate = static_cast<float>(std::fmod(Number(L"ImageRotate", 0), 360.0));
+	const auto flip = Lower(Trim(Read(L"ImageFlip", L"None")));
+	if (flip == L"horizontal" || flip == L"both")
+	{
+		image.flip |= 1;
+	}
+	if (flip == L"vertical" || flip == L"both")
+	{
+		image.flip |= 2;
+	}
+	const auto value = Trim(Read(L"ImageCrop"));
+	if (!value.empty())
+	{
+		const auto parts = Split(value, L',');
+		std::array<float, 5> values = {0, 0, 0, 0, 1};
+		bool valid = parts.size() == 4 || parts.size() == 5;
+		for (size_t i = 0; i < parts.size() && i < values.size(); ++i)
+		{
+			values[i] = ParseNumber(parts[i], std::numeric_limits<float>::quiet_NaN());
+			valid = valid && std::isfinite(values[i]);
+		}
+		valid = valid && values[2] > 0 && values[3] > 0 && values[4] >= 1 && values[4] <= 5 &&
+			values[4] == std::floor(values[4]);
+		if (valid)
+		{
+			image.crop =
+				ImageCrop{values[0], values[1], values[2], values[3], static_cast<int>(values[4])};
+		}
+		else
+		{
+			RmLog(m_Rm, LOG_WARNING,
+				L"ToolTip: invalid ImageCrop (use X,Y,W,H[,Origin], with positive W/H and Origin "
+				L"1-5)");
+		}
+	}
 }
 
 void Options::ReadPlacementOptions()
