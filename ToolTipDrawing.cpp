@@ -304,6 +304,8 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 		{
 			m_Bitmap.Reset();
 			m_Staging.Reset();
+			m_OutlineBitmap.Reset();
+			m_OutlineIntermediate.Reset();
 		}
 	}
 	if (!m_Bitmap &&
@@ -311,8 +313,39 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	{
 		return false;
 	}
-	m_Target->SetTarget(m_Bitmap.Get());
-	m_Target->SetDpi(96 * m_Scale, 96 * m_Scale);
+	// Supersample only the balloon surface. Two exact 2:1 linear reductions
+	// average its subpixels without softening pixel-aligned straight borders.
+	// Keep scratch storage below 8 MiB, including the intermediate surface.
+	const auto pixels = static_cast<UINT64>(dimensions.width) * dimensions.height;
+	UINT samples = m_Options.balloon ? (pixels <= 104857 ? 4 : pixels <= 524288 ? 2 : 1) : 1;
+	if (samples > 1 && !m_OutlineBitmap)
+	{
+		auto outlineProps = props;
+		outlineProps.dpiX *= samples;
+		outlineProps.dpiY *= samples;
+		HRESULT result = m_Target->CreateBitmap(
+			D2D1::SizeU(dimensions.width * samples, dimensions.height * samples), nullptr, 0,
+			&outlineProps, m_OutlineBitmap.GetAddressOf());
+		if (SUCCEEDED(result) && samples == 4)
+		{
+			outlineProps.dpiX = props.dpiX * 2;
+			outlineProps.dpiY = props.dpiY * 2;
+			result =
+				m_Target->CreateBitmap(D2D1::SizeU(dimensions.width * 2, dimensions.height * 2),
+					nullptr, 0, &outlineProps, m_OutlineIntermediate.GetAddressOf());
+		}
+		if (FAILED(result))
+		{
+			m_OutlineBitmap.Reset();
+			m_OutlineIntermediate.Reset();
+		}
+	}
+	if (!m_OutlineBitmap)
+	{
+		samples = 1;
+	}
+	m_Target->SetTarget(samples > 1 ? m_OutlineBitmap.Get() : m_Bitmap.Get());
+	m_Target->SetDpi(96 * m_Scale * samples, 96 * m_Scale * samples);
 	m_Target->SetTextAntialiasMode(m_Options.antiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE
 													   : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
 	m_Target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
@@ -392,6 +425,33 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			{
 				DrawBorder(rectangle.Get(), body, stroke.Get());
 			}
+		}
+	}
+	if (samples > 1)
+	{
+		// Finish all resampling before drawing any text, icons or close button.
+		// Their original target, DPI and text rasterization remain unchanged.
+		ComPtr<ID2D1Bitmap1> source = m_OutlineBitmap;
+		for (UINT level = samples / 2;; level /= 2)
+		{
+			const auto result = m_Target->EndDraw();
+			m_Target->SetTarget(nullptr);
+			if (FAILED(result))
+			{
+				return false;
+			}
+			m_Target->SetTarget(level == 1 ? m_Bitmap.Get() : m_OutlineIntermediate.Get());
+			m_Target->SetDpi(96 * m_Scale * level, 96 * m_Scale * level);
+			m_Target->BeginDraw();
+			m_Target->Clear(D2D1::ColorF(0, 0));
+			const auto rect =
+				D2D1::RectF(0, 0, dimensions.width / m_Scale, dimensions.height / m_Scale);
+			m_Target->DrawBitmap(source.Get(), rect, 1, D2D1_INTERPOLATION_MODE_LINEAR, rect);
+			if (level == 1)
+			{
+				break;
+			}
+			source = m_OutlineIntermediate;
 		}
 	}
 	const float x = m_Options.padding[0] + m_Options.borderWidth;

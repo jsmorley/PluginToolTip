@@ -112,6 +112,8 @@ private:
 	Microsoft::WRL::ComPtr<ID2D1DeviceContext> m_Target;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Bitmap;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Staging;
+	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_OutlineBitmap;
+	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_OutlineIntermediate;
 	std::unique_ptr<Gfx::FontCollection> m_Fonts;
 	std::unique_ptr<Gfx::TextFormat> m_TextFormat;
 	std::unique_ptr<Gfx::TextFormat> m_TitleFormat;

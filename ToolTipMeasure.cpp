@@ -88,6 +88,8 @@ void ToolTipMeasure::Hide()
 	}
 	m_Bitmap.Reset();
 	m_Staging.Reset();
+	m_OutlineBitmap.Reset();
+	m_OutlineIntermediate.Reset();
 	m_Target.Reset();
 	// Drop unused Direct2D caches, while retaining one device to avoid
 	// initializing another driver device every time a card is hovered.
