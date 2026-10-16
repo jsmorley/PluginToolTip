@@ -116,6 +116,7 @@ private:
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Bitmap;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Staging;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_BackgroundImage;
+	float m_BackgroundZoom = 1;
 	std::optional<ToolTip::BackgroundImageOptions> m_LoadedBackgroundImage;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_OutlineBitmap;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_OutlineIntermediate;

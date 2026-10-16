@@ -421,11 +421,12 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	if (m_BackgroundImage)
 	{
 		const auto size = m_BackgroundImage->GetSize();
+		const float width = m_PixelSize.cx / m_Scale, height = m_PixelSize.cy / m_Scale;
+		const auto transform = D2D1::Matrix3x2F::Scale(width / size.width, height / size.height) *
+			D2D1::Matrix3x2F::Scale(
+				m_BackgroundZoom, m_BackgroundZoom, D2D1::Point2F(width / 2, height / 2));
 		m_Target->CreateBitmapBrush(m_BackgroundImage.Get(), D2D1::BitmapBrushProperties(),
-			D2D1::BrushProperties(1,
-				D2D1::Matrix3x2F::Scale(
-					m_PixelSize.cx / m_Scale / size.width, m_PixelSize.cy / m_Scale / size.height)),
-			image.GetAddressOf());
+			D2D1::BrushProperties(1, transform), image.GetAddressOf());
 	}
 	if (m_Options.balloon)
 	{

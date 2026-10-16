@@ -271,10 +271,11 @@ gradient's angle convention remains unchanged.
 | `ImageTint` | `255,255,255,255` | Multiplies the image's red, green, blue and alpha channels by the specified color. White leaves it unchanged; an alpha below 255 makes it translucent. Supports RGB/RGBA and leading-`#` hex colors. Affects BackgroundImage only. |
 | `ImageFlip` | `None` | `None`, `Horizontal`, `Vertical`, or `Both`, case-insensitive. Applied before ImageRotate. |
 | `Greyscale` | `0` | `1` desaturates BackgroundImage before ImageTint is applied. Combine with ImageTint to recolor an image. Option names are case-insensitive, so `GreyScale` is also accepted. |
-| `ImageRotate` | `0` | Clockwise rotation in degrees; negative values rotate counter-clockwise. The full rotated image, including transparent corners, is then stretched to the tooltip's dimensions. Does not rotate the tooltip or its contents. |
+| `ImageRotate` | `0` | Clockwise rotation in degrees; negative values rotate counter-clockwise. The image rotates about its center, then is zoomed and center-cropped to keep the tooltip filled without blank rotation corners. This final fitting crop is separate from ImageCrop, which still selects the source region before transforms. Does not rotate the tooltip or its contents. |
 
 Background image transforms follow Rainmeter's order: **crop, greyscale, tint, flip,
-rotate, then resize**. See Rainmeter's [general image options](https://docs.rainmeter.net/manual/meters/general-options/image-options/).
+rotate, then resize**. After rotation, an automatic centered zoom/crop keeps the
+background covering the entire tooltip; only the image tilts. See Rainmeter's [general image options](https://docs.rainmeter.net/manual/meters/general-options/image-options/).
 The image is decoded using Windows Imaging Component (for example PNG, JPEG, BMP,
 GIF's first frame, TIFF and ICO; other formats depend on installed Windows codecs).
 Transparent image areas show the existing SolidColor or background gradient. Text and

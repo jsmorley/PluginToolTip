@@ -14,6 +14,7 @@ void ToolTipMeasure::ReadBackgroundImage()
 	}
 	m_LoadedBackgroundImage = m_Options.image;
 	m_BackgroundImage.Reset();
+	m_BackgroundZoom = 1;
 	if (!m_Options.image.path.empty())
 	{
 		m_BackgroundImage = LoadBackgroundImage();
@@ -119,6 +120,18 @@ ComPtr<ID2D1Bitmap1> ToolTipMeasure::LoadBackgroundImage()
 		rotatedHeight > maximum || rotatedWidth * rotatedHeight > maxPixels)
 	{
 		return {};
+	}
+	if (c > 0.00001 && s > 0.00001)
+	{
+		// Rotate first, then center-crop the expanded bitmap when fitting the
+		// background. Inverse-rotate its corners to find the minimum zoom that
+		// keeps them inside the original image. Leave an interpolation guard
+		// at each edge for both the rotation and final bitmap-brush sampling.
+		const double safeWidth = std::max(cropWidth * 0.9, cropWidth - 4.0);
+		const double safeHeight = std::max(cropHeight * 0.9, cropHeight - 4.0);
+		m_BackgroundZoom =
+			static_cast<float>(std::max({1.0, (c * rotatedWidth + s * rotatedHeight) / safeWidth,
+				(s * rotatedWidth + c * rotatedHeight) / safeHeight}));
 	}
 	properties.bitmapOptions = D2D1_BITMAP_OPTIONS_TARGET;
 	if (FAILED(m_Target->CreateBitmap(
