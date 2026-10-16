@@ -244,10 +244,11 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			}
 		}
 	}
-	const float inset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
+	const float tipInset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
 	const float top = m_TailTop ? m_TailHeight : 0;
-	const auto body =
-		D2D1::RectF(inset, top + inset, m_BodyWidth - inset, top + m_BodyHeight - inset);
+	// A one-pixel stroke fully covers its straight edges; curves and diagonals
+	// retain antialiasing, as do the partial pixels of fractional stroke widths.
+	const auto body = GetBodyRect(top);
 	if (m_Options.balloon)
 	{
 		// One closed path, so the stroke follows the tail without a seam across its base.
@@ -269,7 +270,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			if (m_TailTop)
 			{
 				sink->AddLine(D2D1::Point2F(tx - 8, body.top));
-				sink->AddLine(D2D1::Point2F(tipX, inset));
+				sink->AddLine(D2D1::Point2F(tipX, tipInset));
 				sink->AddLine(D2D1::Point2F(tx + 8, body.top));
 			}
 			sink->AddLine(D2D1::Point2F(body.right - r, body.top));
@@ -281,7 +282,8 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			if (!m_TailTop)
 			{
 				sink->AddLine(D2D1::Point2F(tx + 8, body.bottom));
-				sink->AddLine(D2D1::Point2F(tipX, m_BodyHeight + m_TailHeight - inset));
+				sink->AddLine(D2D1::Point2F(
+					tipX, std::ceil((m_BodyHeight + m_TailHeight) * m_Scale) / m_Scale - tipInset));
 				sink->AddLine(D2D1::Point2F(tx - 8, body.bottom));
 			}
 			sink->AddLine(D2D1::Point2F(body.left + r, body.bottom));

@@ -77,6 +77,15 @@ D2D1_RECT_F ToolTipMeasure::GetIconRect(float top) const
 	return D2D1::RectF(x, y, x + m_IconWidth, y + m_IconHeight);
 }
 
+D2D1_RECT_F ToolTipMeasure::GetBodyRect(float top) const
+{
+	// Align outer stroke edges to physical pixels while preserving stroke width.
+	const float inset = m_Options.borderWidth / 2;
+	return D2D1::RectF(inset, std::round(top * m_Scale) / m_Scale + inset,
+		std::ceil(m_BodyWidth * m_Scale) / m_Scale - inset,
+		std::ceil((top + m_BodyHeight) * m_Scale) / m_Scale - inset);
+}
+
 void ToolTipMeasure::SelectTail(bool top)
 {
 	m_TailTop = top;
@@ -304,10 +313,10 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 	size = m_PixelSize;
 	if (verticalBalloon)
 	{
-		const float inset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
-		const float radius =
-			std::min({m_Options.radius, std::max(0.0f, m_BodyWidth - 2 * inset) / 2,
-				std::max(0.0f, m_BodyHeight - 2 * inset) / 2});
+		const float inset = m_Options.borderWidth / 2;
+		const auto body = GetBodyRect(m_TailTop ? m_TailHeight : 0);
+		const float radius = std::min({m_Options.radius, std::max(0.0f, body.right - body.left) / 2,
+			std::max(0.0f, body.bottom - body.top) / 2});
 		// Align the balloon's tail with the selected cursor-relative point.
 		// Painting still tracks it after screen-edge clamping.
 		const auto tailInset = static_cast<LONG>(std::ceil((inset + radius + 9) * m_Scale));
@@ -346,14 +355,15 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 	MONITORINFO monitor{sizeof(monitor)};
 	GetMonitorInfoW(MonitorFromPoint(m_Anchor, MONITOR_DEFAULTTONEAREST), &monitor);
 	const RECT& work = monitor.rcWork;
-	const float inset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
+	const float inset = m_Options.borderWidth / 2;
+	const float tipInset = inset + 0.5f / m_Scale;
 	const LONG belowHeight =
 		static_cast<LONG>(std::ceil((m_TopTailBodyHeight + m_TailHeight) * m_Scale));
 	const LONG aboveHeight =
 		static_cast<LONG>(std::ceil((m_BottomTailBodyHeight + m_TailHeight) * m_Scale));
-	const auto tipTop = static_cast<LONG>(std::round(inset * m_Scale));
-	const auto tipBottom =
-		static_cast<LONG>(std::round((m_BottomTailBodyHeight + m_TailHeight - inset) * m_Scale));
+	const auto tipTop = static_cast<LONG>(std::round(tipInset * m_Scale));
+	const auto tipBottom = static_cast<LONG>(std::round(
+		std::ceil((m_BottomTailBodyHeight + m_TailHeight) * m_Scale) - tipInset * m_Scale));
 	const LONG below = belowAnchor.y - tipTop;
 	const LONG above = aboveAnchor.y - tipBottom;
 	bool placeAbove = m_Options.position == L"above";
@@ -380,8 +390,9 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 	}
 	SelectTail(!placeAbove);
 	size = m_PixelSize;
-	const float radius = std::min({m_Options.radius, std::max(0.0f, m_BodyWidth - 2 * inset) / 2,
-		std::max(0.0f, m_BodyHeight - 2 * inset) / 2});
+	const auto body = GetBodyRect(m_TailTop ? m_TailHeight : 0);
+	const float radius = std::min({m_Options.radius, std::max(0.0f, body.right - body.left) / 2,
+		std::max(0.0f, body.bottom - body.top) / 2});
 
 	const auto tailInset = static_cast<LONG>(std::ceil((inset + radius + 9) * m_Scale));
 	const auto xOffset = static_cast<LONG>(m_Options.offsetX * m_Scale);
@@ -398,8 +409,8 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 
 	// OffsetX shifts the body, not the anchor. Keep the point within the bitmap;
 	// the tail's base may slide away from it to clear a rounded corner.
-	const auto tipRight =
-		std::max(tipTop, static_cast<LONG>(std::round((m_BodyWidth - inset) * m_Scale)));
+	const auto tipRight = std::max(
+		tipTop, static_cast<LONG>(std::round(std::ceil(m_BodyWidth * m_Scale) - inset * m_Scale)));
 	position.x = std::clamp(position.x, attachment.x - tipRight, attachment.x - tipTop);
 	if (m_Options.keepOnScreen)
 	{

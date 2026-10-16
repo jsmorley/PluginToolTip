@@ -37,6 +37,7 @@ private:
 	D2D1_RECT_F GetTextRect(float top) const;
 	float GetTitleY(float top) const;
 	D2D1_RECT_F GetIconRect(float top) const;
+	D2D1_RECT_F GetBodyRect(float top) const;
 	void SelectTail(bool top);
 	void UpdateLayout();
 	POINT GetWindowPosition(SIZE size);

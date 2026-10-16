@@ -166,7 +166,7 @@ corner in these same scaled skin units. They follow the skin when it moves or ch
 | `SolidColor2` | unset | Optional second background color for a gradient over the whole tooltip. |
 | `GradientAngle` | `0` | Background gradient angle in degrees; 0 goes left to right, 90 top to bottom. |
 | `LinearGradient` | unset | Shape-style background definition: `Angle | Color ; Position | Color ; Position ...`. Takes precedence over SolidColor, SolidColor2 and GradientAngle when valid. Applies across the entire tooltip, including the heading and balloon tail. |
-| `StrokeSize` | `1` | Outer outline width in skin units, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. |
+| `StrokeSize` | `1` | Outer outline width in skin units, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. Straight outer edges align to the physical pixel grid for crisp opaque strokes at whole-pixel widths; fractional widths, curves and the tail remain antialiased. |
 | `StrokeColor` | `0,0,0,255` | Color of the outer outline; defaults to opaque black. |
 | `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` uses a light top/left and dark bottom/right border; `Sunken` reverses them. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
 | `StrokeBevelLightColor` | derived from StrokeColor | Bevel highlight color. Defaults to StrokeColor blended 45% toward white, preserving its alpha. |
