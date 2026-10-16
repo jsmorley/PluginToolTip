@@ -242,17 +242,28 @@ TitleFontSize and inline formatting. An explicit TitleY overrides automatic
 title centering. Relative TextY values use the title's actual centered position.
 When there is no title, Text is vertically centered on the icon using its
 visible glyph bounds. An explicit TextY retains manual placement.
+SVG icons have transparent space above and below the artwork removed before
+scaling and drawing. With only `IconH=26`, the visible artwork is 26 skin units
+high; the missing width uses the vertically trimmed aspect ratio. Title, or
+Text when there is no title, is centered against that same trimmed image.
+Horizontal transparent margins are preserved. With both dimensions set, SVG's
+`preserveAspectRatio` still controls fitting within that area, and any resulting
+empty vertical margins are excluded from the drawn icon and tooltip layout.
+Trimming is calculated when the source, dimensions or scale change; the SVG file
+is not modified. A fully transparent SVG uses the full icon area as a fallback.
+Explicit TitleY/TextY still override automatic text centering.
 When there is no title, the icon follows the TextY position of the text row.
 Automatic height includes the positioned icon and text plus bottom padding;
 an absolute TextY does not reserve the top balloon tail a second time.
 These dimension options also resize standard and ICO icons.
 
 Set only `IconW` or only `IconH` to preserve the image's aspect ratio and
-calculate the missing dimension. For SVGs, the ratio comes from the `viewBox`,
-or from intrinsic width and height when no viewBox is present. If no usable
+calculate the missing dimension. For SVGs, the ratio uses the `viewBox`,
+or intrinsic width and height when no viewBox is present, with vertical
+transparent margins removed. If no usable
 ratio is available, a square is assumed. Calculated dimensions are limited to
 1–512 skin units. SVG root width/height attributes do not override the requested
-icon size; transparent margins within the viewBox remain part of the image.
+icon size. Transparent margins to the left and right remain part of the image.
 
 Rainmeter variables and measure references in `Icon`, `IconW` and `IconH` are
 resolved on each skin update while the tooltip is open. For dynamic inline

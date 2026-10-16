@@ -10,6 +10,83 @@
 using Microsoft::WRL::ComPtr;
 
 namespace {
+ComPtr<ID2D1Bitmap1> RasterizeSvg(ID2D1DeviceContext* target, ID2D1DeviceContext5* svgContext,
+	ID2D1SvgDocument* document, UINT width, UINT height, D2D1_SIZE_F viewport,
+	D2D1_POINT_2F offset = {})
+{
+	if (FAILED(document->SetViewportSize(viewport)))
+	{
+		return {};
+	}
+	ComPtr<ID2D1Bitmap1> image, readback;
+	auto properties = D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET,
+		D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+	if (FAILED(target->CreateBitmap(
+			D2D1::SizeU(width, height), nullptr, 0, &properties, image.GetAddressOf())))
+	{
+		return {};
+	}
+	target->SetTarget(image.Get());
+	target->SetDpi(96, 96);
+	target->SetTransform(D2D1::Matrix3x2F::Translation(offset.x, offset.y));
+	target->BeginDraw();
+	target->Clear(D2D1::ColorF(0, 0));
+	svgContext->DrawSvgDocument(document);
+	const auto result = target->EndDraw();
+	target->SetTransform(D2D1::Matrix3x2F::Identity());
+	target->SetTarget(nullptr);
+	if (FAILED(result))
+	{
+		return {};
+	}
+	properties.bitmapOptions = D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
+	if (FAILED(target->CreateBitmap(
+			D2D1::SizeU(width, height), nullptr, 0, &properties, readback.GetAddressOf())) ||
+		FAILED(readback->CopyFromBitmap(nullptr, image.Get(), nullptr)))
+	{
+		return {};
+	}
+	return readback;
+}
+
+std::optional<std::pair<float, float>> VerticalBounds(
+	const D2D1_MAPPED_RECT& mapped, UINT width, UINT height)
+{
+	UINT first = height, last = 0;
+	BYTE firstAlpha = 0, lastAlpha = 0, peakAlpha = 0;
+	for (UINT row = 0; row < height; ++row)
+	{
+		const BYTE* pixels = mapped.bits + row * mapped.pitch;
+		BYTE alpha = 0;
+		for (UINT column = 0; column < width; ++column)
+		{
+			alpha = std::max(alpha, pixels[column * 4 + 3]);
+			if (alpha == 255)
+			{
+				break;
+			}
+		}
+		if (alpha)
+		{
+			if (first == height)
+			{
+				first = row;
+				firstAlpha = alpha;
+			}
+			last = row;
+			lastAlpha = alpha;
+			peakAlpha = std::max(peakAlpha, alpha);
+		}
+	}
+	if (first == height)
+	{
+		return {};
+	}
+	// Normalize edge coverage to retain bounds for translucent artwork too.
+	return std::pair<float, float>{first + 1 - firstAlpha / static_cast<float>(peakAlpha),
+		last + lastAlpha / static_cast<float>(peakAlpha)};
+}
+
 void ResolveIconSize(
 	double requestedWidth, double requestedHeight, float ratio, float& width, float& height)
 {
@@ -42,8 +119,8 @@ void ToolTipMeasure::DestroyIconResource()
 
 HICON ToolTipMeasure::LoadSvgIcon(const std::wstring& source)
 {
-	// Rasterize at the skin's scale once per icon change, preserving alpha
-	// and rectangular SVG viewports.
+	// Trim vertical transparency before the final skin-scale rasterization,
+	// preserving alpha and the SVG's original coordinate system.
 	std::string xml;
 	if (!source.empty() && source.front() == L'<')
 	{
@@ -128,40 +205,83 @@ HICON ToolTipMeasure::LoadSvgIcon(const std::wstring& source)
 			L"viewBox", D2D1_SVG_ATTRIBUTE_POD_TYPE_VIEWBOX, &viewBox, sizeof(viewBox));
 	}
 	ResolveIconSize(m_RequestedIconWidth, m_RequestedIconHeight, ratio, m_IconWidth, m_IconHeight);
-	UINT width = static_cast<UINT>(std::ceil(m_IconWidth * m_Scale));
-	UINT height = static_cast<UINT>(std::ceil(m_IconHeight * m_Scale));
+	if (viewBox.width <= 0 || viewBox.height <= 0)
+	{
+		viewBox = {0, 0, m_IconWidth, m_IconHeight};
+		if (FAILED(root->SetAttributeValue(
+				L"viewBox", D2D1_SVG_ATTRIBUTE_POD_TYPE_VIEWBOX, &viewBox, sizeof(viewBox))))
+		{
+			return nullptr;
+		}
+	}
 	const D2D1_SVG_LENGTH full = {100, D2D1_SVG_LENGTH_UNITS_PERCENTAGE};
-	if (FAILED(document->SetViewportSize(
-			D2D1::SizeF(static_cast<float>(width), static_cast<float>(height)))) ||
-		FAILED(root->SetAttributeValue(L"width", full)) ||
+	if (FAILED(root->SetAttributeValue(L"width", full)) ||
 		FAILED(root->SetAttributeValue(L"height", full)))
 	{
 		return nullptr;
 	}
-	ComPtr<ID2D1Bitmap1> image, readback;
-	auto props = D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET,
-		D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
-	if (FAILED(m_Target->CreateBitmap(
-			D2D1::SizeU(width, height), nullptr, 0, &props, image.GetAddressOf())))
+	D2D1_SVG_PRESERVE_ASPECT_RATIO aspect{
+		FALSE, D2D1_SVG_ASPECT_ALIGN_X_MID_Y_MID, D2D1_SVG_ASPECT_SCALING_MEET};
+	root->GetAttributeValue(L"preserveAspectRatio", &aspect);
+	const D2D1_SVG_PRESERVE_ASPECT_RATIO probeAspect{
+		FALSE, D2D1_SVG_ASPECT_ALIGN_NONE, D2D1_SVG_ASPECT_SCALING_MEET};
+	if (FAILED(root->SetAttributeValue(L"preserveAspectRatio", probeAspect)))
 	{
 		return nullptr;
 	}
-	m_Target->SetTarget(image.Get());
-	m_Target->SetDpi(96, 96);
-	m_Target->SetTransform(D2D1::Matrix3x2F::Identity());
-	m_Target->BeginDraw();
-	m_Target->Clear(D2D1::ColorF(0, 0));
-	svgContext->DrawSvgDocument(document.Get());
-	auto hr = m_Target->EndDraw();
-	m_Target->SetTarget(nullptr);
-	if (FAILED(hr))
+
+	// Inspect the original coordinate system without redefining the viewBox:
+	// percentage-based artwork must keep its original meaning after trimming.
+	constexpr UINT probeSize = 512;
+	auto probe = RasterizeSvg(m_Target.Get(), svgContext.Get(), document.Get(), probeSize,
+		probeSize, D2D1::SizeF(probeSize, probeSize));
+	float cropTop = 0, cropHeight = 1;
+	if (!probe)
 	{
 		return nullptr;
 	}
-	props.bitmapOptions = D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
-	if (FAILED(m_Target->CreateBitmap(
-			D2D1::SizeU(width, height), nullptr, 0, &props, readback.GetAddressOf())) ||
-		FAILED(readback->CopyFromBitmap(nullptr, image.Get(), nullptr)))
+	D2D1_MAPPED_RECT probePixels{};
+	if (FAILED(probe->Map(D2D1_MAP_OPTIONS_READ, &probePixels)))
+	{
+		return nullptr;
+	}
+	const auto probeBounds = VerticalBounds(probePixels, probeSize, probeSize);
+	if (probeBounds)
+	{
+		cropTop = probeBounds->first / probeSize;
+		cropHeight = (probeBounds->second - probeBounds->first) / probeSize;
+	}
+	probe->Unmap();
+	probe.Reset();
+	if (FAILED(root->SetAttributeValue(L"preserveAspectRatio", aspect)))
+	{
+		return nullptr;
+	}
+
+	ratio = viewBox.width / (viewBox.height * cropHeight);
+	ResolveIconSize(m_RequestedIconWidth, m_RequestedIconHeight, ratio, m_IconWidth, m_IconHeight);
+	const float areaWidth = m_IconWidth * m_Scale, areaHeight = m_IconHeight * m_Scale;
+	UINT width = static_cast<UINT>(std::ceil(areaWidth));
+	UINT height = static_cast<UINT>(std::ceil(areaHeight));
+	float scaleX = areaWidth / viewBox.width;
+	float scaleY = areaHeight / (viewBox.height * cropHeight);
+	float alignX = 0, alignY = 0;
+	if (aspect.align != D2D1_SVG_ASPECT_ALIGN_NONE)
+	{
+		const float scale = aspect.meetOrSlice == D2D1_SVG_ASPECT_SCALING_SLICE
+			? std::max(scaleX, scaleY)
+			: std::min(scaleX, scaleY);
+		scaleX = scaleY = scale;
+		const int alignment = std::clamp(static_cast<int>(aspect.align), 1, 9) - 1;
+		alignX = (alignment % 3) / 2.0f;
+		alignY = (alignment / 3) / 2.0f;
+	}
+	const auto viewport = D2D1::SizeF(viewBox.width * scaleX, viewBox.height * scaleY);
+	const auto offset = D2D1::Point2F((areaWidth - viewport.width) * alignX,
+		(areaHeight - viewport.height * cropHeight) * alignY - viewport.height * cropTop);
+	auto readback = RasterizeSvg(
+		m_Target.Get(), svgContext.Get(), document.Get(), width, height, viewport, offset);
+	if (!readback)
 	{
 		return nullptr;
 	}
@@ -170,30 +290,41 @@ HICON ToolTipMeasure::LoadSvgIcon(const std::wstring& source)
 	{
 		return nullptr;
 	}
+	const auto bounds = VerticalBounds(mapped, width, height);
+	const UINT firstRow = bounds ? static_cast<UINT>(std::floor(bounds->first)) : 0;
+	const UINT lastRow =
+		bounds ? std::min(height, static_cast<UINT>(std::ceil(bounds->second))) : height;
+	const UINT trimmedHeight = lastRow - firstRow;
 	BITMAPINFO info{};
 	info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	info.bmiHeader.biWidth = width;
-	info.bmiHeader.biHeight = -static_cast<LONG>(height);
+	info.bmiHeader.biHeight = -static_cast<LONG>(trimmedHeight);
 	info.bmiHeader.biPlanes = 1;
 	info.bmiHeader.biBitCount = 32;
 	info.bmiHeader.biCompression = BI_RGB;
 	void* bits = nullptr;
 	HBITMAP color = CreateDIBSection(nullptr, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
-	std::vector<BYTE> maskBits(((width + 15) / 16) * 2 * height, 0);
-	HBITMAP mask = CreateBitmap(width, height, 1, 1, maskBits.data());
+	std::vector<BYTE> maskBits(((width + 15) / 16) * 2 * trimmedHeight, 0);
+	HBITMAP mask = CreateBitmap(width, trimmedHeight, 1, 1, maskBits.data());
 	HICON result = nullptr;
 	if (color && mask)
 	{
-		for (UINT row = 0; row < height; ++row)
+		for (UINT row = 0; row < trimmedHeight; ++row)
 		{
-			memcpy(static_cast<BYTE*>(bits) + row * width * 4, mapped.bits + row * mapped.pitch,
-				width * 4);
+			memcpy(static_cast<BYTE*>(bits) + row * width * 4,
+				mapped.bits + (firstRow + row) * mapped.pitch, width * 4);
 		}
 		ICONINFO ii{};
 		ii.fIcon = TRUE;
 		ii.hbmColor = color;
 		ii.hbmMask = mask;
 		result = CreateIconIndirect(&ii);
+		if (result && bounds)
+		{
+			m_IconHeight *= trimmedHeight / static_cast<float>(height);
+			m_IconVerticalCenter =
+				(bounds->first + bounds->second - 2 * firstRow) / (2 * trimmedHeight);
+		}
 	}
 	if (color)
 	{
@@ -215,6 +346,7 @@ void ToolTipMeasure::ReadIcon()
 	}
 	m_Icon = nullptr;
 	m_IconOwned = false;
+	m_IconVerticalCenter = 0.5f;
 	m_RequestedIconWidth = m_Options.Number(L"IconW", 0);
 	m_RequestedIconHeight = m_Options.Number(L"IconH", 0);
 	ResolveIconSize(m_RequestedIconWidth, m_RequestedIconHeight, 1, m_IconWidth, m_IconHeight);
