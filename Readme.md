@@ -242,6 +242,9 @@ TitleFontSize and inline formatting. An explicit TitleY overrides automatic
 title centering. Relative TextY values use the title's actual centered position.
 When there is no title, Text is vertically centered on the icon using its
 visible glyph bounds. An explicit TextY retains manual placement.
+Automatic icon-row alignment accounts for the text pixels rendered at the current
+scale, with physical-pixel rounding for small-font rendering. Automatic row height uses
+the visible content rather than adding the font's empty space below its glyphs.
 SVG icons have transparent space above and below the artwork removed before
 scaling and drawing. With only `IconH=26`, the visible artwork is 26 skin units
 high; the missing width uses the vertically trimmed aspect ratio. Title, or

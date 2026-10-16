@@ -72,6 +72,8 @@ private:
 	float m_IconScale = 1;
 	float m_IconVerticalCenter = 0.5f;
 	float m_IconAlignmentPadding = 0;
+	float m_IconRowOffset = 0;
+	std::optional<D2D1_RECT_F> m_RowInk;
 	double m_RequestedIconWidth = 0;
 	double m_RequestedIconHeight = 0;
 	bool m_IconOwned = false;

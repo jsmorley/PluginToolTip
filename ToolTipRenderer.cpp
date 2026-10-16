@@ -85,6 +85,82 @@ D2D1_RECT_F Gfx::Canvas::MeasureInk(
 		layout->GetMaxHeight() + ink.bottom - adjustment);
 }
 
+D2D1_RECT_F Gfx::Canvas::MeasureRenderedInk(ID2D1DeviceContext* target, const std::wstring& text,
+	TextFormat& format, D2D1_RECT_F rect, float scale, bool antiAlias)
+{
+	const auto fallback = MeasureInk(text, format, rect.right - rect.left, rect.bottom - rect.top);
+	if (!target || text.empty())
+	{
+		return fallback;
+	}
+	// Measure at the actual pixel phase: DirectWrite's small-font hinting can
+	// move painted rows away from the unhinted outline bounds.
+	const float left = std::floor((rect.left + fallback.left) * scale) - 2;
+	const float top = std::floor((rect.top + fallback.top) * scale) - 2;
+	const float width = std::ceil((rect.left + fallback.right) * scale) + 2 - left;
+	const float height = std::ceil((rect.top + fallback.bottom) * scale) + 2 - top;
+	if (width <= 0 || height <= 0 || width > 4096 || height > 2048)
+	{
+		return fallback;
+	}
+	using Microsoft::WRL::ComPtr;
+	ComPtr<ID2D1Device> device;
+	ComPtr<ID2D1DeviceContext> context;
+	ComPtr<ID2D1Bitmap1> bitmap, readback;
+	target->GetDevice(device.GetAddressOf());
+	auto properties = D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET,
+		D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), 96 * scale,
+		96 * scale);
+	const auto dimensions = D2D1::SizeU(static_cast<UINT>(width), static_cast<UINT>(height));
+	if (!device ||
+		FAILED(device->CreateDeviceContext(
+			D2D1_DEVICE_CONTEXT_OPTIONS_NONE, context.GetAddressOf())) ||
+		FAILED(context->CreateBitmap(dimensions, nullptr, 0, &properties, bitmap.GetAddressOf())))
+	{
+		return fallback;
+	}
+	context->SetTarget(bitmap.Get());
+	context->SetDpi(96 * scale, 96 * scale);
+	context->SetTextAntialiasMode(
+		antiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
+	context->SetTransform(D2D1::Matrix3x2F::Translation(-left / scale, -top / scale));
+	context->BeginDraw();
+	context->Clear(D2D1::ColorF(0, 0));
+	Draw(context.Get(), text, format, rect, D2D1::ColorF(0, 1), false, true);
+	const HRESULT result = context->EndDraw();
+	context->SetTarget(nullptr);
+	properties.bitmapOptions = D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
+	if (FAILED(result) ||
+		FAILED(
+			context->CreateBitmap(dimensions, nullptr, 0, &properties, readback.GetAddressOf())) ||
+		FAILED(readback->CopyFromBitmap(nullptr, bitmap.Get(), nullptr)))
+	{
+		return fallback;
+	}
+	D2D1_MAPPED_RECT mapped{};
+	if (FAILED(readback->Map(D2D1_MAP_OPTIONS_READ, &mapped)))
+	{
+		return fallback;
+	}
+	UINT first = dimensions.height, last = 0;
+	for (UINT y = 0; y < dimensions.height; ++y)
+	{
+		for (UINT x = 0; x < dimensions.width; ++x)
+		{
+			if (mapped.bits[y * mapped.pitch + x * 4 + 3] >= 32)
+			{
+				first = std::min(first, y);
+				last = y + 1;
+				break;
+			}
+		}
+	}
+	readback->Unmap();
+	return first == dimensions.height ? fallback
+									  : D2D1::RectF(fallback.left, (top + first) / scale - rect.top,
+											fallback.right, (top + last) / scale - rect.top);
+}
+
 void Gfx::Canvas::Draw(ID2D1DeviceContext* target, const std::wstring& text, TextFormat& format,
 	D2D1_RECT_F rect, D2D1_COLOR_F color, bool inlines, bool accurate)
 {

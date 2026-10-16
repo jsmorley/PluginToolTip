@@ -61,6 +61,7 @@ ToolTipMeasure::~ToolTipMeasure()
 
 void ToolTipMeasure::ReadOptions()
 {
+	m_RowInk.reset();
 	m_Options.Load(m_Rm);
 	m_Scale = ReadScale();
 }

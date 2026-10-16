@@ -340,6 +340,7 @@ HICON ToolTipMeasure::LoadSvgIcon(const std::wstring& source)
 
 void ToolTipMeasure::ReadIcon()
 {
+	m_RowInk.reset();
 	if (m_IconOwned && m_Icon)
 	{
 		DestroyIcon(m_Icon);

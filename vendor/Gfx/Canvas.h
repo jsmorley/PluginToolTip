@@ -14,6 +14,8 @@ public:
 		const std::wstring& text, TextFormat& format, float width, bool accurate);
 	static D2D1_RECT_F MeasureInk(
 		const std::wstring& text, TextFormat& format, float width = 8192, float height = 10000);
+	static D2D1_RECT_F MeasureRenderedInk(ID2D1DeviceContext* target, const std::wstring& text,
+		TextFormat& format, D2D1_RECT_F rect, float scale, bool antiAlias);
 	static void Draw(ID2D1DeviceContext* target, const std::wstring& text, TextFormat& format,
 		D2D1_RECT_F rect, D2D1_COLOR_F color, bool inlines, bool accurate);
 };

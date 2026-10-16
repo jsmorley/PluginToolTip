@@ -69,12 +69,11 @@ D2D1_RECT_F ToolTipMeasure::GetIconRect(float top) const
 {
 	const float x = m_Options.padding[0] + m_Options.borderWidth;
 	const float y = m_Options.title.empty()
-		? (m_Options.textY
-				  ? GetTextRect(top).top
-				  : top + m_Options.padding[1] + m_Options.borderWidth + m_IconAlignmentPadding +
-					  std::max(0.0f, m_TextLayoutSize.height - m_IconHeight) / 2)
+		? (m_Options.textY ? GetTextRect(top).top
+						   : top + m_Options.padding[1] + m_Options.borderWidth +
+					  m_IconAlignmentPadding + m_IconRowOffset)
 		: top + m_Options.padding[1] + m_Options.borderWidth + m_IconAlignmentPadding +
-			std::max(0.0f, m_TitleSize.height - m_IconHeight) / 2;
+			m_IconRowOffset;
 	return D2D1::RectF(x, y, x + m_IconWidth, y + m_IconHeight);
 }
 
@@ -108,11 +107,15 @@ void ToolTipMeasure::UpdateLayout()
 		: Gfx::Canvas::Measure(m_Options.title, *m_TitleFormat, 8192, true);
 	m_TitleAlignmentOffset = 0;
 	m_IconAlignmentPadding = 0;
+	m_IconRowOffset = 0;
 	if (m_Icon && !m_Options.title.empty())
 	{
 		const auto ink = Gfx::Canvas::MeasureInk(m_Options.title, *m_TitleFormat);
-		const float center = std::max(m_IconHeight, m_TitleSize.height) / 2 +
-			m_IconHeight * (m_IconVerticalCenter - 0.5f);
+		m_IconRowOffset =
+			std::max(0.0f,
+				(m_Options.titleY ? m_TitleSize.height : ink.bottom - ink.top) - m_IconHeight) /
+			2;
+		const float center = m_IconRowOffset + m_IconHeight * m_IconVerticalCenter;
 		if (!m_Options.titleY)
 		{
 			m_IconAlignmentPadding = std::max(0.0f, (ink.bottom - ink.top) / 2 - center);
@@ -133,10 +136,47 @@ void ToolTipMeasure::UpdateLayout()
 	if (m_Icon && m_Options.title.empty() && !m_Text.empty() && !m_Options.textY)
 	{
 		const auto ink = Gfx::Canvas::MeasureInk(m_Text, *m_TextFormat, m_TextLayoutSize.width, h);
-		const float center =
-			std::max(m_IconHeight, h) / 2 + m_IconHeight * (m_IconVerticalCenter - 0.5f);
+		m_IconRowOffset = std::max(0.0f, ink.bottom - ink.top - m_IconHeight) / 2;
+		const float center = m_IconRowOffset + m_IconHeight * m_IconVerticalCenter;
 		m_IconAlignmentPadding = std::max(0.0f, (ink.bottom - ink.top) / 2 - center);
 		m_TextAlignmentOffset = center + m_IconAlignmentPadding - (ink.top + ink.bottom) / 2;
+	}
+	std::optional<float> titlePaintBottom, textPaintBottom;
+	const bool titleRow = !m_Options.title.empty() && !m_Options.titleY;
+	const bool textRow = m_Options.title.empty() && !m_Text.empty() && !m_Options.textY;
+	if (m_Icon && (titleRow || textRow) && InitializeGraphics())
+	{
+		const float x = m_Options.padding[0] + m_Options.borderWidth;
+		auto rect = titleRow
+			? D2D1::RectF(m_Options.titleX.value_or(x + m_IconWidth + 6), GetTitleY(0),
+				  m_Options.titleX.value_or(x + m_IconWidth + 6) + m_TitleSize.width + 1,
+				  GetTitleY(0) + m_TitleSize.height)
+			: GetTextRect(0);
+		if (!m_RowInk)
+		{
+			m_RowInk =
+				Gfx::Canvas::MeasureRenderedInk(m_Target.Get(), titleRow ? m_Options.title : m_Text,
+					titleRow ? *m_TitleFormat : *m_TextFormat, rect, m_Scale, m_Options.antiAlias);
+		}
+		const auto ink = *m_RowInk;
+		const float center = GetIconRect(0).top + m_IconHeight * m_IconVerticalCenter;
+		// Whole-pixel corrections retain the measured rasterization phase.
+		const float correction =
+			std::round((center - rect.top - (ink.top + ink.bottom) / 2) * m_Scale) / m_Scale;
+		if (titleRow)
+		{
+			m_TitleAlignmentOffset += correction;
+			titlePaintBottom = GetTitleY(0) + ink.bottom;
+			m_HeaderHeight =
+				std::max({GetIconRect(0).bottom, *titlePaintBottom,
+					m_Options.padding[1] + m_Options.borderWidth + (m_Options.close ? 22 : 0)}) -
+				m_Options.padding[1] - m_Options.borderWidth + (h > 0 ? 5 : 0);
+		}
+		else
+		{
+			m_TextAlignmentOffset += correction;
+			textPaintBottom = GetTextRect(0).top + ink.bottom;
+		}
 	}
 	m_TailHeight = m_Options.balloon ? 12.0f : 0;
 	// Horizontal coordinates are independent of the tail's orientation.
@@ -151,11 +191,14 @@ void ToolTipMeasure::UpdateLayout()
 		float bottom = top + m_Options.padding[1] + m_Options.borderWidth;
 		if (!m_Text.empty() || m_Options.height > 0)
 		{
-			bottom = std::max(bottom, GetTextRect(top).bottom);
+			bottom = std::max(bottom,
+				textPaintBottom && m_Options.height <= 0 ? top + *textPaintBottom
+														 : GetTextRect(top).bottom);
 		}
 		if (!m_Options.title.empty())
 		{
-			bottom = std::max(bottom, GetTitleY(top) + m_TitleSize.height);
+			bottom = std::max(bottom,
+				titlePaintBottom ? top + *titlePaintBottom : GetTitleY(top) + m_TitleSize.height);
 		}
 		if (m_Icon)
 		{
