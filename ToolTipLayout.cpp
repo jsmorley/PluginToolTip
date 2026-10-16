@@ -160,9 +160,11 @@ void ToolTipMeasure::UpdateLayout()
 		}
 		const auto ink = *m_RowInk;
 		const float center = GetIconRect(0).top + m_IconHeight * m_IconVerticalCenter;
-		// Whole-pixel corrections retain the measured rasterization phase.
+		// Keep the text on its measured rasterization phase for sharp glyphs.
+		// Apply the remaining fractional correction to the icon instead.
 		const float correction =
 			std::round((center - rect.top - (ink.top + ink.bottom) / 2) * m_Scale) / m_Scale;
+		m_IconRowOffset += rect.top + (ink.top + ink.bottom) / 2 + correction - center;
 		if (titleRow)
 		{
 			m_TitleAlignmentOffset += correction;
