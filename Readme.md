@@ -270,10 +270,10 @@ gradient's angle convention remains unchanged.
 | `ImageCrop` | unset | Source-image crop in pixels: `X,Y,W,H[,Origin]`. Positive W/H are required. Origin is `1` top left (default), `2` top right, `3` bottom right, `4` bottom left, or `5` center; X/Y are offsets from that origin. Regions outside the image are transparent. Applied before resizing. |
 | `ImageTint` | `255,255,255,255` | Multiplies the image's red, green, blue and alpha channels by the specified color. White leaves it unchanged; an alpha below 255 makes it translucent. Supports RGB/RGBA and leading-`#` hex colors. Affects BackgroundImage only. |
 | `ImageFlip` | `None` | `None`, `Horizontal`, `Vertical`, or `Both`, case-insensitive. Applied before ImageRotate. |
-| `Greyscale` | `0` | `1` desaturates BackgroundImage before ImageTint is applied. Combine with ImageTint to recolor an image. Option names are case-insensitive, so `GreyScale` is also accepted. |
+| `GreyScale` / `GrayScale` | `0` | Either spelling is accepted. `1` desaturates BackgroundImage before ImageTint is applied. Combine with ImageTint to recolor an image. If both are set, GreyScale takes precedence. Option names are case-insensitive. |
 | `ImageRotate` | `0` | Clockwise rotation in degrees; negative values rotate counter-clockwise. The image rotates about its center, then is zoomed and center-cropped to keep the tooltip filled without blank rotation corners. This final fitting crop is separate from ImageCrop, which still selects the source region before transforms. Does not rotate the tooltip or its contents. |
 
-Background image transforms follow Rainmeter's order: **crop, greyscale, tint, flip,
+Background image transforms follow Rainmeter's order: **crop, GreyScale, tint, flip,
 rotate, then resize**. After rotation, an automatic centered zoom/crop keeps the
 background covering the entire tooltip; only the image tilts. See Rainmeter's [general image options](https://docs.rainmeter.net/manual/meters/general-options/image-options/).
 The image is decoded using Windows Imaging Component (for example PNG, JPEG, BMP,
@@ -289,7 +289,7 @@ Title=Background image
 Text=The text and icon keep their normal colors.
 BackgroundImage=#@#Images\Background.png
 ImageCrop=-160,-90,320,180,5
-Greyscale=1
+GreyScale=1
 ImageTint=80,160,255,220
 ImageFlip=Horizontal
 ImageRotate=15
@@ -573,7 +573,7 @@ dependencies.
 | `ToolTipDrawing.cpp` | Tooltip background, gradients, strokes and bevels, title/body drawing, and layered-window presentation. |
 | `ToolTipGraphics.h`, `ToolTipGraphics.cpp` | Shared graphics device resources and creation of each instance's drawing context. |
 | `ToolTipIcon.cpp` | Standard icons, icon files, and SVG loading/rasterization. |
-| `ToolTipImage.cpp` | Background image decoding, crop origins, greyscale/tint, flip/rotation, and per-instance caching. |
+| `ToolTipImage.cpp` | Background image decoding, crop origins, GreyScale/tint, flip/rotation, and per-instance caching. |
 | `ToolTipOptions.h`, `ToolTipOptions.cpp` | Parsed option snapshot, grouped option readers, measure substitutions, and text-format configuration. |
 | `ToolTipParser.h`, `ToolTipParser.cpp` | Colors, gradient stops, inline settings, and bounded PCRE matching. |
 | `CursorAttachment.h`, `CursorAttachment.cpp` | Visible cursor bounds relative to its hotspot. |

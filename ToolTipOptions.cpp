@@ -243,7 +243,7 @@ void Options::ReadImageOptions()
 	}
 	const auto tint = Color(Read(L"ImageTint", L"255,255,255,255"), D2D1::ColorF(0xffffff));
 	image.tint = {tint.r, tint.g, tint.b, tint.a};
-	image.greyscale = Number(L"Greyscale", 0) != 0;
+	image.greyscale = Number(L"GreyScale", Number(L"GrayScale", 0)) != 0;
 	image.rotate = static_cast<float>(std::fmod(Number(L"ImageRotate", 0), 360.0));
 	const auto flip = Lower(Trim(Read(L"ImageFlip", L"None")));
 	if (flip == L"horizontal" || flip == L"both")
