@@ -31,9 +31,28 @@ void ToolTipMeasure::LoadFonts()
 
 void ToolTipMeasure::DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat)
 {
+	// A finely tessellated filled contour gives thin curves more even coverage
+	// than the native stroker, without resampling the tooltip's text or icons.
+	auto drawStroke = [&](ID2D1Brush* brush) {
+		ComPtr<ID2D1PathGeometry> contour;
+		ComPtr<ID2D1GeometrySink> sink;
+		if (SUCCEEDED(ToolTip::GetGraphicsResources().factory->CreatePathGeometry(
+				contour.GetAddressOf())) &&
+			SUCCEEDED(contour->Open(sink.GetAddressOf())) &&
+			SUCCEEDED(outline->Widen(
+				m_Options.borderWidth, nullptr, nullptr, 0.01f / m_Scale, sink.Get())) &&
+			SUCCEEDED(sink->Close()))
+		{
+			m_Target->FillGeometry(contour.Get(), brush);
+		}
+		else
+		{
+			m_Target->DrawGeometry(outline, brush, m_Options.borderWidth);
+		}
+	};
 	if (m_Options.strokeBevel == L"none" || m_Options.bevelWidth == 0 || m_Options.bevelRelief == 0)
 	{
-		m_Target->DrawGeometry(outline, flat, m_Options.borderWidth);
+		drawStroke(flat);
 		return;
 	}
 	auto widen = [&](float width, ComPtr<ID2D1PathGeometry>& path) {
@@ -94,12 +113,11 @@ void ToolTipMeasure::DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body,
 		}
 		return brush;
 	};
-	// Keep the original single-stroke rendering for the default profile.
+	// The default bevel uses the same precise contour with a gradient brush.
 	if (m_Options.bevelProfile == L"linear" && m_Options.bevelWidth == m_Options.borderWidth)
 	{
 		auto brush = brushFor(1);
-		m_Target->DrawGeometry(
-			outline, brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat, m_Options.borderWidth);
+		drawStroke(brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat);
 		return;
 	}
 	ComPtr<ID2D1PathGeometry> outer;
