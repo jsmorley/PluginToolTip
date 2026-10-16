@@ -52,6 +52,7 @@ private:
 	}
 	void DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat);
 	D2D1_POINT_2F GetCloseButtonOrigin() const;
+	bool DrawBalloon(const D2D1_RECT_F& body, ID2D1Brush* background, ID2D1Brush* stroke);
 	bool Draw(BYTE opacity = 255);
 	void Show(bool fixed, POINT point, D2D1_POINT_2F relative = {});
 	void Display();

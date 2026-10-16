@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Jeffrey Morley. Source code licensed under GNU GPL v2 (see LICENSE file).
 
 #include <filesystem>
+#include <d2d1_2.h>
 #include "ToolTipMeasure.h"
 #include "ToolTipGraphics.h"
 
@@ -31,28 +32,9 @@ void ToolTipMeasure::LoadFonts()
 
 void ToolTipMeasure::DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat)
 {
-	// A finely tessellated filled contour gives thin curves more even coverage
-	// than the native stroker, without resampling the tooltip's text or icons.
-	auto drawStroke = [&](ID2D1Brush* brush) {
-		ComPtr<ID2D1PathGeometry> contour;
-		ComPtr<ID2D1GeometrySink> sink;
-		if (SUCCEEDED(ToolTip::GetGraphicsResources().factory->CreatePathGeometry(
-				contour.GetAddressOf())) &&
-			SUCCEEDED(contour->Open(sink.GetAddressOf())) &&
-			SUCCEEDED(outline->Widen(
-				m_Options.borderWidth, nullptr, nullptr, 0.01f / m_Scale, sink.Get())) &&
-			SUCCEEDED(sink->Close()))
-		{
-			m_Target->FillGeometry(contour.Get(), brush);
-		}
-		else
-		{
-			m_Target->DrawGeometry(outline, brush, m_Options.borderWidth);
-		}
-	};
 	if (m_Options.strokeBevel == L"none" || m_Options.bevelWidth == 0 || m_Options.bevelRelief == 0)
 	{
-		drawStroke(flat);
+		m_Target->DrawGeometry(outline, flat, m_Options.borderWidth);
 		return;
 	}
 	auto widen = [&](float width, ComPtr<ID2D1PathGeometry>& path) {
@@ -113,11 +95,12 @@ void ToolTipMeasure::DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body,
 		}
 		return brush;
 	};
-	// The default bevel uses the same precise contour with a gradient brush.
+	// Use Direct2D stroke rendering, as in Rainmeter's Shape meter.
 	if (m_Options.bevelProfile == L"linear" && m_Options.bevelWidth == m_Options.borderWidth)
 	{
 		auto brush = brushFor(1);
-		drawStroke(brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat);
+		m_Target->DrawGeometry(
+			outline, brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat, m_Options.borderWidth);
 		return;
 	}
 	ComPtr<ID2D1PathGeometry> outer;
@@ -167,6 +150,128 @@ void ToolTipMeasure::DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body,
 	}
 }
 
+bool ToolTipMeasure::DrawBalloon(
+	const D2D1_RECT_F& body, ID2D1Brush* background, ID2D1Brush* stroke)
+{
+	const float tipInset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
+	float r =
+		std::min({m_Options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
+	float tx = std::clamp((m_Attachment.x - m_Origin.x) / m_Scale, body.left + r + 9,
+		std::max(body.left + r + 9, body.right - r - 9));
+	// A skin-relative or following-cursor tail stays anchored when the window is moved
+	// away from a screen edge. Only its base must clear the rounded corners.
+	const float tipX = IsTailAnchored() ? std::clamp((m_Attachment.x - m_Origin.x) / m_Scale,
+											  body.left, std::max(body.left, body.right))
+										: tx;
+
+	auto* factory = ToolTip::GetGraphicsResources().factory.Get();
+	ComPtr<ID2D1RoundedRectangleGeometry> rounded;
+	ComPtr<ID2D1PathGeometry> triangle, silhouette, tailStroke;
+	ComPtr<ID2D1GeometrySink> sink;
+	const float baseY = m_TailTop ? body.top : body.bottom;
+	const float tipY = m_TailTop
+		? tipInset
+		: std::ceil((m_BodyHeight + m_TailHeight) * m_Scale) / m_Scale - tipInset;
+	if (FAILED(factory->CreateRoundedRectangleGeometry(
+			D2D1::RoundedRect(body, r, r), rounded.GetAddressOf())) ||
+		FAILED(factory->CreatePathGeometry(triangle.GetAddressOf())) ||
+		FAILED(triangle->Open(sink.GetAddressOf())))
+	{
+		return false;
+	}
+	sink->BeginFigure(D2D1::Point2F(tx - 8, baseY), D2D1_FIGURE_BEGIN_FILLED);
+	if (m_TailTop)
+	{
+		sink->AddLine(D2D1::Point2F(tipX, tipY));
+		sink->AddLine(D2D1::Point2F(tx + 8, baseY));
+	}
+	else
+	{
+		sink->AddLine(D2D1::Point2F(tx + 8, baseY));
+		sink->AddLine(D2D1::Point2F(tipX, tipY));
+	}
+	sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+	HRESULT result = sink->Close();
+	sink.Reset();
+	if (FAILED(result) || FAILED(factory->CreatePathGeometry(silhouette.GetAddressOf())) ||
+		FAILED(silhouette->Open(sink.GetAddressOf())))
+	{
+		return false;
+	}
+	// Keep a joined contour for crowded tails and older Direct2D hosts.
+	result = rounded->CombineWithGeometry(
+		triangle.Get(), D2D1_COMBINE_MODE_UNION, nullptr, 0.01f / m_Scale, sink.Get());
+	const HRESULT closed = sink->Close();
+	sink.Reset();
+	if (FAILED(result) || FAILED(closed))
+	{
+		return false;
+	}
+	ComPtr<ID2D1DeviceContext1> additive;
+	if (SUCCEEDED(m_Target.As(&additive)))
+	{
+		// The body and triangle share an edge without overlapping. Add their
+		// coverage so a translucent background has no seam across that edge.
+		m_Target->FillGeometry(rounded.Get(), background);
+		const auto blend = m_Target->GetPrimitiveBlend();
+		m_Target->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_ADD);
+		m_Target->FillGeometry(triangle.Get(), background);
+		m_Target->SetPrimitiveBlend(blend);
+	}
+	else
+	{
+		m_Target->FillGeometry(silhouette.Get(), background);
+	}
+	if (m_Options.borderWidth > 0)
+	{
+		// Pixel-aligned clips keep the native rounded corners intact. Replace
+		// only the straight tail-side segment with an open path through the tip.
+		const float left = std::ceil((body.left + r) * m_Scale) / m_Scale;
+		const float right = std::floor((body.right - r) * m_Scale) / m_Scale;
+		const float gap = std::min(tx - 8 - left, right - tx - 8);
+		bool native =
+			left < right && gap >= m_Options.borderWidth / 2 && tipX >= left && tipX <= right;
+		if (native && SUCCEEDED(factory->CreatePathGeometry(tailStroke.GetAddressOf())) &&
+			SUCCEEDED(tailStroke->Open(sink.GetAddressOf())))
+		{
+			sink->BeginFigure(D2D1::Point2F(left, baseY), D2D1_FIGURE_BEGIN_HOLLOW);
+			sink->AddLine(D2D1::Point2F(tx - 8, baseY));
+			sink->AddLine(D2D1::Point2F(tipX, tipY));
+			sink->AddLine(D2D1::Point2F(tx + 8, baseY));
+			sink->AddLine(D2D1::Point2F(right, baseY));
+			sink->EndFigure(D2D1_FIGURE_END_OPEN);
+			native = SUCCEEDED(sink->Close());
+			sink.Reset();
+		}
+		else
+		{
+			native = false;
+		}
+		if (native)
+		{
+			auto clippedBorder = [&](D2D1_RECT_F clip) {
+				m_Target->PushAxisAlignedClip(clip, D2D1_ANTIALIAS_MODE_ALIASED);
+				DrawBorder(rounded.Get(), body, stroke);
+				m_Target->PopAxisAlignedClip();
+			};
+			const float width = m_PixelSize.cx / m_Scale;
+			const float height = m_PixelSize.cy / m_Scale;
+			clippedBorder(D2D1::RectF(0, 0, left, height));
+			clippedBorder(D2D1::RectF(right, 0, width, height));
+			const float middle = (body.top + body.bottom) / 2;
+			clippedBorder(m_TailTop ? D2D1::RectF(left, middle, right, height)
+									: D2D1::RectF(left, 0, right, middle));
+			DrawBorder(tailStroke.Get(), body, stroke);
+		}
+		else
+		{
+			// Crowded or sharply leaning tails need the entire joined contour.
+			DrawBorder(silhouette.Get(), body, stroke);
+		}
+	}
+	return true;
+}
+
 bool ToolTipMeasure::Draw(BYTE opacity)
 {
 	const float currentScale = ReadScale();
@@ -210,6 +315,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 	m_Target->SetDpi(96 * m_Scale, 96 * m_Scale);
 	m_Target->SetTextAntialiasMode(m_Options.antiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE
 													   : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
+	m_Target->SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 	m_Target->BeginDraw();
 	m_Target->Clear(D2D1::ColorF(0, 0));
 	ComPtr<ID2D1SolidColorBrush> fill, stroke;
@@ -262,61 +368,17 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			}
 		}
 	}
-	const float tipInset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
 	const float top = m_TailTop ? m_TailHeight : 0;
 	// A one-pixel stroke fully covers its straight edges; curves and diagonals
 	// retain antialiasing, as do the partial pixels of fractional stroke widths.
 	const auto body = GetBodyRect(top);
 	if (m_Options.balloon)
 	{
-		// One closed path, so the stroke follows the tail without a seam across its base.
-		float r = std::min(
-			{m_Options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
-		float tx = std::clamp((m_Attachment.x - m_Origin.x) / m_Scale, body.left + r + 9,
-			std::max(body.left + r + 9, body.right - r - 9));
-		// A skin-relative or following-cursor tail stays anchored when the window is moved
-		// away from a screen edge. Only its base must clear the rounded corners.
-		const float tipX = IsTailAnchored() ? std::clamp((m_Attachment.x - m_Origin.x) / m_Scale,
-												  body.left, std::max(body.left, body.right))
-											: tx;
-		ComPtr<ID2D1PathGeometry> geometry;
-		ComPtr<ID2D1GeometrySink> sink;
-		ToolTip::GetGraphicsResources().factory->CreatePathGeometry(geometry.GetAddressOf());
-		if (geometry && SUCCEEDED(geometry->Open(sink.GetAddressOf())))
+		if (!DrawBalloon(body, background.Get(), stroke.Get()))
 		{
-			sink->BeginFigure(D2D1::Point2F(body.left + r, body.top), D2D1_FIGURE_BEGIN_FILLED);
-			if (m_TailTop)
-			{
-				sink->AddLine(D2D1::Point2F(tx - 8, body.top));
-				sink->AddLine(D2D1::Point2F(tipX, tipInset));
-				sink->AddLine(D2D1::Point2F(tx + 8, body.top));
-			}
-			sink->AddLine(D2D1::Point2F(body.right - r, body.top));
-			sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(body.right, body.top + r),
-				D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
-			sink->AddLine(D2D1::Point2F(body.right, body.bottom - r));
-			sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(body.right - r, body.bottom),
-				D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
-			if (!m_TailTop)
-			{
-				sink->AddLine(D2D1::Point2F(tx + 8, body.bottom));
-				sink->AddLine(D2D1::Point2F(
-					tipX, std::ceil((m_BodyHeight + m_TailHeight) * m_Scale) / m_Scale - tipInset));
-				sink->AddLine(D2D1::Point2F(tx - 8, body.bottom));
-			}
-			sink->AddLine(D2D1::Point2F(body.left + r, body.bottom));
-			sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(body.left, body.bottom - r),
-				D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
-			sink->AddLine(D2D1::Point2F(body.left, body.top + r));
-			sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(body.left + r, body.top), D2D1::SizeF(r, r),
-				0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
-			sink->EndFigure(D2D1_FIGURE_END_CLOSED);
-			sink->Close();
-			m_Target->FillGeometry(geometry.Get(), background.Get());
-			if (m_Options.borderWidth > 0)
-			{
-				DrawBorder(geometry.Get(), body, stroke.Get());
-			}
+			m_Target->EndDraw();
+			m_Target->SetTarget(nullptr);
+			return false;
 		}
 	}
 	else
