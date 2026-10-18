@@ -30,6 +30,7 @@ private:
 	POINT GetSkinAnchor(float effectiveScale) const;
 	void ReadOptions();
 	void Hide();
+	bool IsSkinSelected() const;
 	HICON LoadSvgIcon(const std::wstring& source);
 	void ReadIcon();
 	bool InitializeGraphics();

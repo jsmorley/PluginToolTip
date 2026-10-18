@@ -101,11 +101,19 @@ void ToolTipMeasure::Hide()
 	}
 }
 
+bool ToolTipMeasure::IsSkinSelected() const
+{
+	// Rainmeter creates this child when selecting the skin and destroys it
+	// on deselection. Checking the child avoids relying on modifier-key state.
+	return FindWindowExW(m_SkinWindow, nullptr, L"RainmeterSkinSelectionOverlay", nullptr) !=
+		nullptr;
+}
+
 void ToolTipMeasure::Show(bool fixed, POINT point, D2D1_POINT_2F relative)
 {
 	Hide();
 	ReadOptions();
-	if (!m_Window || !m_Options.enabled || !IsWindowVisible(m_SkinWindow))
+	if (!m_Window || !m_Options.enabled || !IsWindowVisible(m_SkinWindow) || IsSkinSelected())
 	{
 		return;
 	}
@@ -159,7 +167,7 @@ void ToolTipMeasure::Tick()
 	}
 	// Also cover hosts that do not send a scale-change notification, including
 	// a pending InitialDelay that must not appear after zooming.
-	if (ReadScale() != m_Scale)
+	if (ReadScale() != m_Scale || IsSkinSelected())
 	{
 		Hide();
 		return;
@@ -170,12 +178,13 @@ void ToolTipMeasure::Tick()
 		return;
 	}
 	// Query Windows' actual menu state rather than treating every right click
-	// as a context menu. This also covers keyboard/bang-opened skin menus,
+	// as a context menu. Include the skin selection overlay (a child window)
+	// as well as keyboard/bang-opened skin menus,
 	// without subclassing the host's unload-sensitive window procedure.
 	GUITHREADINFO gui{sizeof(gui)};
 	if (GetGUIThreadInfo(GetWindowThreadProcessId(m_SkinWindow, nullptr), &gui) &&
 		(gui.flags & (GUI_INMENUMODE | GUI_POPUPMENUMODE | GUI_SYSTEMMENUMODE)) &&
-		gui.hwndMenuOwner == m_SkinWindow)
+		(gui.hwndMenuOwner == m_SkinWindow || IsChild(m_SkinWindow, gui.hwndMenuOwner)))
 	{
 		Hide();
 		return;
@@ -239,7 +248,7 @@ void ToolTipMeasure::UpdateOpen()
 	{
 		return;
 	}
-	if (ReadScale() != m_Scale)
+	if (ReadScale() != m_Scale || IsSkinSelected())
 	{
 		Hide();
 		return;

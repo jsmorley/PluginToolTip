@@ -156,7 +156,13 @@ the host from pre-scaling W, H and FontSize before the plugin scales them for re
 On older hosts without the effective-scale API, the plugin uses the skin window's Windows DPI.
 A skin zoom or effective DPI-scale change dismisses open tooltips and cancels pending
 InitialDelay displays, regardless of FollowMouse, AutoPopDelay or DismissOnClick.
-A new Show command is required to open the tooltip again, using the new scale. `Show x y` coordinates are relative to the skin's upper-left
+A new Show command is required to open the tooltip again, using the new scale.
+Ctrl+Alt-selecting the skin also dismisses open tooltips and cancels pending
+InitialDelay displays. Show and Toggle cannot open a tooltip while that skin's
+selection overlay exists, regardless of DismissOnClick or FollowMouse. After
+deselecting the skin, a new Show command can open it normally. Selecting another
+skin does not dismiss this skin's tooltip.
+ `Show x y` coordinates are relative to the skin's upper-left
 corner in these same scaled pixels. They follow the skin when it moves; after a scale
 change, the next Show uses the new scale.
 
@@ -631,7 +637,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `FollowMouse` | `1` | 1 follows the cursor while open; set 0 to leave it at its initial position. With KeepOnScreen=1, balloons using Auto, Above, or Below (including Above/Below Left/Right pairs) flip to the other side near the top/bottom of the screen, attempting to keep the tail pointed at the cursor. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
 | `Topmost` | `1` | 1 puts the tooltip in the topmost window group without activating it. Redraws preserve window order instead of repeatedly raising the tooltip or its skin. With 0, the owned tooltip still stays above its skin and inherits the skin's topmost status when necessary. Actual window order is checked on tooltip position changes and every open-window timer tick: if its own skin moves ahead, the tooltip is placed immediately above it in the window order. This also applies when a following tooltip moves from outside the skin onto it with AlwaysOnTop=2 (Stay Topmost). The plugin does not subclass the skin window, allowing Rainmeter to unload it safely from the skin's window procedure. |
-| `DismissOnClick` | `1` | A new left/right mouse press dismisses requested/open tooltips. With 0, ordinary clicks do not dismiss them, but opening this skin's context menu always dismisses an open tooltip or cancels a pending display. This also applies to keyboard- or bang-opened skin menus; menus owned by other windows do not override this setting. |
+| `DismissOnClick` | `1` | A new left/right mouse press dismisses requested/open tooltips. With 0, ordinary clicks do not dismiss them, but opening this skin's context menu always dismisses an open tooltip or cancels a pending display. This includes the Ctrl+Alt selection overlay's context menu and keyboard- or bang-opened skin menus. Menu dismissal applies regardless of DismissOnClick; menus belonging to other skins or unrelated windows do not override this setting. |
 | `NoFade` | `0` | 1 disables fade-in. |
 
 With Position=Absolute, Show x y gives the popup's top-left position relative to the skin,
