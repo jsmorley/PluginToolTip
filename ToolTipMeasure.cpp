@@ -89,6 +89,8 @@ void ToolTipMeasure::Hide()
 	m_Bitmap.Reset();
 	m_Staging.Reset();
 	m_BackgroundImage.Reset();
+	m_BevelBitmap.Reset();
+	m_BevelKey.clear();
 	m_LoadedBackgroundImage.reset();
 	m_OutlineBitmap.Reset();
 	m_OutlineIntermediate.Reset();

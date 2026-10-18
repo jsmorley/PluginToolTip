@@ -118,6 +118,8 @@ private:
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Bitmap;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_Staging;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_BackgroundImage;
+	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_BevelBitmap;
+	std::vector<float> m_BevelKey;
 	float m_BackgroundZoom = 1;
 	std::optional<ToolTip::BackgroundImageOptions> m_LoadedBackgroundImage;
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> m_OutlineBitmap;

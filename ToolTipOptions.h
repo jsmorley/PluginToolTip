@@ -82,6 +82,11 @@ struct Options
 	float bevelRelief = 1;
 	float bevelSmoothness = 0;
 	float bevelAngle = 225;
+	float bevelHighlight = 0.25f;
+	float bevelGloss = 24;
+	float bevelShadow = 1;
+	int bevelRings = 1;
+	std::wstring bevelPlacement;
 	int weight = 400;
 	int clip = 2;
 	int initialDelay = 0;

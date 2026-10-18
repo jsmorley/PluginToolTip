@@ -223,10 +223,11 @@ void Options::ReadAppearanceOptions()
 		D2D1::ColorF(border.r * 0.55f, border.g * 0.55f, border.b * 0.55f, border.a));
 	bevelProfile = Lower(Trim(Read(L"StrokeBevelProfile", L"Linear")));
 	if (bevelProfile != L"linear" && bevelProfile != L"curved" && bevelProfile != L"concave" &&
-		bevelProfile != L"bulged")
+		bevelProfile != L"bulged" && bevelProfile != L"ridge" && bevelProfile != L"groove")
 	{
 		RmLog(m_Rm, LOG_WARNING,
-			L"ToolTip: invalid StrokeBevelProfile (use Linear, Curved, Concave, or Bulged)");
+			L"ToolTip: invalid StrokeBevelProfile (use Linear, Curved, Concave, Bulged, Ridge, or "
+			L"Groove)");
 		bevelProfile = L"linear";
 	}
 	bevelWidth = static_cast<float>(std::clamp(
@@ -234,6 +235,18 @@ void Options::ReadAppearanceOptions()
 	bevelRelief = static_cast<float>(std::clamp(Number(L"StrokeBevelRelief", 1), 0.0, 1.0));
 	bevelSmoothness = static_cast<float>(std::clamp(Number(L"StrokeBevelSmoothness", 0), 0.0, 1.0));
 	bevelAngle = static_cast<float>(std::fmod(Number(L"StrokeBevelLightAngle", 225), 360.0));
+	bevelHighlight =
+		static_cast<float>(std::clamp(Number(L"StrokeBevelHighlight", 0.25), 0.0, 1.0));
+	bevelGloss = static_cast<float>(std::clamp(Number(L"StrokeBevelGloss", 24), 1.0, 128.0));
+	bevelShadow = static_cast<float>(std::clamp(Number(L"StrokeBevelShadow", 1), 0.0, 1.0));
+	bevelRings = static_cast<int>(std::clamp(Number(L"StrokeBevelRings", 1), 1.0, 8.0));
+	bevelPlacement = Lower(Trim(Read(L"StrokeBevelPlacement", L"Center")));
+	if (bevelPlacement != L"inner" && bevelPlacement != L"center" && bevelPlacement != L"outer")
+	{
+		RmLog(m_Rm, LOG_WARNING,
+			L"ToolTip: invalid StrokeBevelPlacement (use Inner, Center, or Outer)");
+		bevelPlacement = L"center";
+	}
 	radius = static_cast<float>(std::clamp(Number(L"CornerRadius", 6), 0.0, 256.0));
 }
 

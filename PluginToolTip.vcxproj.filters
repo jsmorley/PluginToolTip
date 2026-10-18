@@ -8,6 +8,7 @@
     <ClCompile Include="ToolTipImage.cpp" />
     <ClCompile Include="ToolTipLayout.cpp" />
     <ClCompile Include="ToolTipDrawing.cpp" />
+    <ClCompile Include="ToolTipBevel.cpp" />
     <ClCompile Include="ToolTipParser.cpp" />
     <ClCompile Include="CursorAttachment.cpp" />
     <ClCompile Include="ToolTipOptions.cpp" />

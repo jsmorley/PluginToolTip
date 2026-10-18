@@ -30,126 +30,6 @@ void ToolTipMeasure::LoadFonts()
 	}
 }
 
-void ToolTipMeasure::DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat)
-{
-	if (m_Options.strokeBevel == L"none" || m_Options.bevelWidth == 0 || m_Options.bevelRelief == 0)
-	{
-		m_Target->DrawGeometry(outline, flat, m_Options.borderWidth);
-		return;
-	}
-	auto widen = [&](float width, ComPtr<ID2D1PathGeometry>& path) {
-		ComPtr<ID2D1GeometrySink> sink;
-		return SUCCEEDED(ToolTip::GetGraphicsResources().factory->CreatePathGeometry(
-				   path.GetAddressOf())) &&
-			SUCCEEDED(path->Open(sink.GetAddressOf())) &&
-			SUCCEEDED(outline->Widen(width, nullptr, nullptr, 0.1f / m_Scale, sink.Get())) &&
-			SUCCEEDED(sink->Close());
-	};
-	auto band = [&](ID2D1Geometry* outer, ID2D1Geometry* inner, ID2D1Brush* brush) {
-		if (!inner)
-		{
-			m_Target->FillGeometry(outer, brush);
-			return;
-		}
-		ComPtr<ID2D1PathGeometry> ring;
-		ComPtr<ID2D1GeometrySink> sink;
-		if (SUCCEEDED(
-				ToolTip::GetGraphicsResources().factory->CreatePathGeometry(ring.GetAddressOf())) &&
-			SUCCEEDED(ring->Open(sink.GetAddressOf())) &&
-			SUCCEEDED(outer->CombineWithGeometry(
-				inner, D2D1_COMBINE_MODE_EXCLUDE, nullptr, 0.1f / m_Scale, sink.Get())) &&
-			SUCCEEDED(sink->Close()))
-		{
-			m_Target->FillGeometry(ring.Get(), brush);
-		}
-	};
-	const float w = std::max(1.0f, body.right - body.left),
-				h = std::max(1.0f, body.bottom - body.top);
-	const float radians = m_Options.bevelAngle * 3.14159265f / 180;
-	const float dx = -std::cos(radians) / w, dy = -std::sin(radians) / h;
-	const float extent = (std::abs(dx) * w + std::abs(dy) * h) / (2 * (dx * dx + dy * dy));
-	const auto center = D2D1::Point2F((body.left + body.right) / 2, (body.top + body.bottom) / 2);
-	auto brushFor = [&](float strength) {
-		auto mix = [&](D2D1_COLOR_F color) {
-			const float amount = std::abs(strength) * m_Options.bevelRelief;
-			return D2D1::ColorF(m_Options.border.r + (color.r - m_Options.border.r) * amount,
-				m_Options.border.g + (color.g - m_Options.border.g) * amount,
-				m_Options.border.b + (color.b - m_Options.border.b) * amount,
-				m_Options.border.a + (color.a - m_Options.border.a) * amount);
-		};
-		const bool raised = (m_Options.strokeBevel == L"raised") != (strength < 0);
-		const auto light = mix(raised ? m_Options.bevelLight : m_Options.bevelDark);
-		const auto dark = mix(raised ? m_Options.bevelDark : m_Options.bevelLight);
-		const float fade = m_Options.bevelSmoothness / 2;
-		D2D1_GRADIENT_STOP stops[] = {
-			{0, light}, {0.5f - fade, light}, {0.5f + fade, dark}, {1, dark}};
-		ComPtr<ID2D1GradientStopCollection> collection;
-		ComPtr<ID2D1LinearGradientBrush> brush;
-		if (SUCCEEDED(m_Target->CreateGradientStopCollection(stops, 4, collection.GetAddressOf())))
-		{
-			m_Target->CreateLinearGradientBrush(
-				D2D1::LinearGradientBrushProperties(
-					D2D1::Point2F(center.x - dx * extent, center.y - dy * extent),
-					D2D1::Point2F(center.x + dx * extent, center.y + dy * extent)),
-				collection.Get(), brush.GetAddressOf());
-		}
-		return brush;
-	};
-	// Use Direct2D stroke rendering, as in Rainmeter's Shape meter.
-	if (m_Options.bevelProfile == L"linear" && m_Options.bevelWidth == m_Options.borderWidth)
-	{
-		auto brush = brushFor(1);
-		m_Target->DrawGeometry(
-			outline, brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat, m_Options.borderWidth);
-		return;
-	}
-	ComPtr<ID2D1PathGeometry> outer;
-	if (!widen(m_Options.bevelWidth, outer))
-	{
-		m_Target->DrawGeometry(outline, flat, m_Options.borderWidth);
-		return;
-	}
-	if (m_Options.bevelWidth < m_Options.borderWidth)
-	{
-		ComPtr<ID2D1PathGeometry> full;
-		if (widen(m_Options.borderWidth, full))
-		{
-			band(full.Get(), outer.Get(), flat);
-		}
-	}
-	// Disjoint contour bands avoid accumulating alpha over the background.
-	// Curved softens toward the center; Concave recesses it; Bulged reverses
-	// the slope midway across the band for a ridge with two lit faces.
-	const int count = m_Options.bevelProfile == L"linear"
-		? 1
-		: std::clamp(static_cast<int>(std::ceil(m_Options.bevelWidth * m_Scale * 2)), 2, 32);
-	for (int i = 0; i < count; ++i)
-	{
-		const float t = (i + 0.5f) / count;
-		float strength = 1;
-		if (m_Options.bevelProfile == L"curved")
-		{
-			strength = std::cos(t * 3.14159265f / 2);
-		}
-		else if (m_Options.bevelProfile == L"concave")
-		{
-			strength = -std::sin(t * 3.14159265f / 2);
-		}
-		else if (m_Options.bevelProfile == L"bulged")
-		{
-			strength = std::cos(t * 3.14159265f);
-		}
-		auto brush = brushFor(strength);
-		ComPtr<ID2D1PathGeometry> inner;
-		if (i + 1 < count && !widen(m_Options.bevelWidth * (1 - (i + 1.0f) / count), inner))
-		{
-			break;
-		}
-		band(outer.Get(), inner.Get(), brush ? static_cast<ID2D1Brush*>(brush.Get()) : flat);
-		outer = inner;
-	}
-}
-
 bool ToolTipMeasure::DrawBalloon(
 	const D2D1_RECT_F& body, ID2D1Brush* background, ID2D1Brush* stroke, ID2D1Brush* image)
 {
@@ -235,6 +115,14 @@ bool ToolTipMeasure::DrawBalloon(
 	}
 	if (m_Options.borderWidth > 0)
 	{
+		if (m_Options.strokeBevel != L"none" && m_Options.bevelWidth > 0 &&
+			m_Options.bevelRelief > 0)
+		{
+			// Bevel normals need one closed contour. Splitting the body and
+			// open tail stroke would introduce false edges and defeat caching.
+			DrawBorder(silhouette.Get(), body, stroke);
+			return true;
+		}
 		// Pixel-aligned clips keep the native rounded corners intact. Replace
 		// only the straight tail-side segment with an open path through the tip.
 		const float left = std::ceil((body.left + r) * m_Scale) / m_Scale;
