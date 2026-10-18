@@ -178,13 +178,12 @@ void ToolTipMeasure::Tick()
 		return;
 	}
 	// Query Windows' actual menu state rather than treating every right click
-	// as a context menu. Include the skin selection overlay (a child window)
-	// as well as keyboard/bang-opened skin menus,
+	// as a context menu. This also covers keyboard/bang-opened skin menus,
 	// without subclassing the host's unload-sensitive window procedure.
 	GUITHREADINFO gui{sizeof(gui)};
 	if (GetGUIThreadInfo(GetWindowThreadProcessId(m_SkinWindow, nullptr), &gui) &&
 		(gui.flags & (GUI_INMENUMODE | GUI_POPUPMENUMODE | GUI_SYSTEMMENUMODE)) &&
-		(gui.hwndMenuOwner == m_SkinWindow || IsChild(m_SkinWindow, gui.hwndMenuOwner)))
+		gui.hwndMenuOwner == m_SkinWindow)
 	{
 		Hide();
 		return;
