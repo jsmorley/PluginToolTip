@@ -47,42 +47,7 @@ in the matching leave action to cancel pending displays as well as close visible
 Avoid also setting Rainmeter's built-in `ToolTipText` on the same target, which can open a
 second tooltip.
 
-For a raised beveled border, add these options to the tooltip measure:
-
-```ini
-StrokeSize=2.5
-StrokeColor=110,110,110,255
-StrokeBevel=Raised
-StrokeBevelLightColor=220,220,220,255
-StrokeBevelDarkColor=45,45,45,255
-```
-
-Use `StrokeBevel=Sunken` to reverse the bevel. The two bevel colors are optional;
-omit them to derive the shading from `StrokeColor`. Fractional stroke sizes scale
-with the skin and are antialiased; very thin outlines produce a subtler bevel.
-
-For a softer rounded border, try:
-
-```ini
-StrokeSize=6.5
-StrokeBevel=Raised
-StrokeBevelProfile=Curved
-StrokeBevelWidth=6.5
-StrokeBevelRelief=0.8
-StrokeBevelSmoothness=0.3
-StrokeBevelLightAngle=225
-```
-
-`Linear` creates a flat sloping face. `Curved` softens the shading toward
-the inner edge, `Concave` creates a recessed transition, and `Bulged` creates a
-rounded rim with opposite slopes. `Ridge` and `Groove` add crests and valleys,
-and repeated rings can form multiple rims. These profiles shade contour bands across the border,
-including rounded balloon corners and tails. Wider strokes make the profiles more
-visible. Raised/Sunken reverses each profile's lighting.
-
-These controls are inspired by Microsoft's [BevelBitmapEffect](https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.effects.bevelbitmapeffect).
-They use Direct2D outline geometry with custom lighting and defaults;
-they do not apply a bitmap bevel to the tooltip background, text, or icons.
+For beveled outlines, see [Configuring Bevels](#configuring-bevels).
 
 ## Commands and measure values
 
@@ -171,19 +136,6 @@ change, the next Show uses the new scale.
 | --- | --- | --- |
 | `StrokeSize` | `1` | Outer outline width in pixels, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. Straight outer edges align to the physical pixel grid for crisp opaque strokes at whole-pixel widths; fractional widths, curves and the tail remain antialiased. |
 | `StrokeColor` | `0,0,0,255` | Color of the outer outline; defaults to opaque black. |
-| `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` lights the edge according to its local surface direction; `Sunken` reverses the relief. The default light direction highlights the top/left. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
-| `StrokeBevelLightColor` | derived from StrokeColor | Bevel highlight color. Defaults to StrokeColor blended 45% toward white, preserving its alpha. |
-| `StrokeBevelDarkColor` | derived from StrokeColor | Bevel shadow color. Defaults to StrokeColor blended 45% toward black, preserving its alpha. |
-| `StrokeBevelProfile` | `Linear` | `Linear`, `Curved`, `Concave`, `Bulged`, `Ridge`, or `Groove`. See the bevel profiles below. Case-insensitive; invalid values log a warning and use Linear. |
-| `StrokeBevelWidth` | StrokeSize | Width of the shaded band within the outline, in pixels. Placement controls its position; Center is the default. Supports fractions and is clamped to 0–StrokeSize. The remainder uses StrokeColor; 0 gives a flat outline. |
-| `StrokeBevelRelief` | `1` | Shading strength from 0 to 1; 0 gives a flat StrokeColor outline, 1 uses the full highlight/shadow colors. |
-| `StrokeBevelSmoothness` | `0` | Softness from 0 (stronger directional contrast) to 1 (gentler directional transition). Also rounds the crest/valley of Ridge/Groove profiles. |
-| `StrokeBevelLightAngle` | `225` | Light source direction in degrees clockwise: 0 right, 90 bottom, 180 left, 270 top. 225 lights the top/left. Angles wrap every 360 degrees. |
-| `StrokeBevelPlacement` | `Center` | Position of a partial-width bevel band inside the existing stroke: Inner, Center, or Outer. Does not move the stroke or enlarge the tooltip. No visible effect when bevel width equals StrokeSize. |
-| `StrokeBevelRings` | `1` | Number of repeated rims for Bulged, Ridge, or Groove profiles, from 1 to 8. Other profiles ignore it. More rings divide the same bevel width rather than increasing the stroke. |
-| `StrokeBevelHighlight` | `0.25` | Extra specular highlight strength, 0–1, using StrokeBevelLightColor. Zero disables the glossy highlight without disabling ordinary bevel lighting. |
-| `StrokeBevelGloss` | `24` | Specular highlight concentration, 1–128. Higher values give a tighter highlight; lower values give a broader sheen. Only matters when Highlight and Relief are nonzero. |
-| `StrokeBevelShadow` | `1` | Directional shadow strength, 0–1, using StrokeBevelDarkColor. Zero removes darkening while preserving the lit face and specular highlight. |
 | `W`, `H` | automatic | Overall tooltip body width/height in pixels, including padding and stroke, excluding the balloon tail. Zero or omitted means automatic sizing independently on each axis. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
 | `Title` | empty | Optional heading using the selected font face and TitleFontSize in bold, with matching inline formatting applied. |
@@ -222,7 +174,70 @@ The tooltip is a separate popup rather than a meter. Its W/H describe the rectan
 StringAlign describes alignment inside the available Text layout. General meter placement, transformations,
 containers, meter actions, and meter groups are not tooltip layout options. Shadows can extend outside the calculated layout; provide sufficient padding/size.
 
-### Stroke bevel rendering and profiles
+## Configuring Bevels
+
+Bevels shade the tooltip's outline. StrokeSize and StrokeColor set the underlying
+stroke; the options below control its relief, profile and lighting. Dimensions are
+pixels and are zoom / DPI aware.
+
+### Quick start
+
+For a raised beveled border, add these options to the tooltip measure:
+
+```ini
+StrokeSize=2.5
+StrokeColor=110,110,110,255
+StrokeBevel=Raised
+StrokeBevelLightColor=220,220,220,255
+StrokeBevelDarkColor=45,45,45,255
+```
+
+Use `StrokeBevel=Sunken` to reverse the bevel. The two bevel colors are optional;
+omit them to derive the shading from `StrokeColor`. Fractional stroke sizes scale
+with the skin and are antialiased; very thin outlines produce a subtler bevel.
+
+For a softer rounded border, try:
+
+```ini
+StrokeSize=6.5
+StrokeBevel=Raised
+StrokeBevelProfile=Curved
+StrokeBevelWidth=6.5
+StrokeBevelRelief=0.8
+StrokeBevelSmoothness=0.3
+StrokeBevelLightAngle=225
+```
+
+`Linear` creates a flat sloping face. `Curved` softens the shading toward
+the inner edge, `Concave` creates a recessed transition, and `Bulged` creates a
+rounded rim with opposite slopes. `Ridge` and `Groove` add crests and valleys,
+and repeated rings can form multiple rims. These profiles shade contour bands across the border,
+including rounded balloon corners and tails. Wider strokes make the profiles more
+visible. Raised/Sunken reverses each profile's lighting.
+
+These controls are inspired by Microsoft's [BevelBitmapEffect](https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.effects.bevelbitmapeffect).
+They use Direct2D outline geometry with custom lighting and defaults;
+they do not apply a bitmap bevel to the tooltip background, text, or icons.
+
+### Bevel options
+
+| [SP]20[/SP]Option[SP]20[/SP] | [SP]10[/SP]Default[SP]10[/SP] | Meaning |
+| --- | --- | --- |
+| `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` lights the edge according to its local surface direction; `Sunken` reverses the relief. The default light direction highlights the top/left. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
+| `StrokeBevelLightColor` | derived from StrokeColor | Bevel highlight color. Defaults to StrokeColor blended 45% toward white, preserving its alpha. |
+| `StrokeBevelDarkColor` | derived from StrokeColor | Bevel shadow color. Defaults to StrokeColor blended 45% toward black, preserving its alpha. |
+| `StrokeBevelProfile` | `Linear` | `Linear`, `Curved`, `Concave`, `Bulged`, `Ridge`, or `Groove`. See the bevel profiles below. Case-insensitive; invalid values log a warning and use Linear. |
+| `StrokeBevelWidth` | StrokeSize | Width of the shaded band within the outline, in pixels. Placement controls its position; Center is the default. Supports fractions and is clamped to 0–StrokeSize. The remainder uses StrokeColor; 0 gives a flat outline. |
+| `StrokeBevelRelief` | `1` | Shading strength from 0 to 1; 0 gives a flat StrokeColor outline, 1 uses the full highlight/shadow colors. |
+| `StrokeBevelSmoothness` | `0` | Softness from 0 (stronger directional contrast) to 1 (gentler directional transition). Also rounds the crest/valley of Ridge/Groove profiles. |
+| `StrokeBevelLightAngle` | `225` | Light source direction in degrees clockwise: 0 right, 90 bottom, 180 left, 270 top. 225 lights the top/left. Angles wrap every 360 degrees. |
+| `StrokeBevelPlacement` | `Center` | Position of a partial-width bevel band inside the existing stroke: Inner, Center, or Outer. Does not move the stroke or enlarge the tooltip. No visible effect when bevel width equals StrokeSize. |
+| `StrokeBevelRings` | `1` | Number of repeated rims for Bulged, Ridge, or Groove profiles, from 1 to 8. Other profiles ignore it. More rings divide the same bevel width rather than increasing the stroke. |
+| `StrokeBevelHighlight` | `0.25` | Extra specular highlight strength, 0–1, using StrokeBevelLightColor. Zero disables the glossy highlight without disabling ordinary bevel lighting. |
+| `StrokeBevelGloss` | `24` | Specular highlight concentration, 1–128. Higher values give a tighter highlight; lower values give a broader sheen. Only matters when Highlight and Relief are nonzero. |
+| `StrokeBevelShadow` | `1` | Directional shadow strength, 0–1, using StrokeBevelDarkColor. Zero removes darkening while preserving the lit face and specular highlight. |
+
+### Profiles and rendering
 
 A bevel is shading **within the stroke**, rather than a shadow outside the window
 or a change to the background fill. Set StrokeSize wide enough to see it: 6–12
