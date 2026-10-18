@@ -481,7 +481,8 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			source = m_OutlineIntermediate;
 		}
 	}
-	const float x = m_Options.padding[0] + m_Options.borderWidth;
+	m_Target->PushAxisAlignedClip(
+		D2D1::RectF(0, top, m_BodyWidth, top + m_BodyHeight), D2D1_ANTIALIAS_MODE_ALIASED);
 	if (m_Icon && ToolTip::GetGraphicsResources().wic)
 	{
 		ComPtr<IWICBitmap> iconWic;
@@ -499,15 +500,15 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			m_Target->DrawBitmap(iconBitmap.Get(), GetIconRect(top));
 		}
 	}
-	const float defaultTitleX = x + (m_Icon ? m_IconWidth + 6 : 0);
-	const float titleX = m_Options.titleX.value_or(defaultTitleX);
+	const float titleX = GetTitleX();
 	const float titleY = GetTitleY(top);
 	if (!m_Options.title.empty())
 	{
-		const float titleWidth =
-			m_BodyWidth - m_Options.padding[2] - (m_Options.close ? 24 : 0) - defaultTitleX;
+		const float titleWidth = std::max(1.0f,
+			m_BodyWidth - m_Options.padding[2] - m_Options.borderWidth -
+				(m_Options.close && !m_Options.closeButtonX ? 24 : 0) - titleX);
 		Gfx::Canvas::Draw(m_Target.Get(), m_Options.title, *m_TitleFormat,
-			D2D1::RectF(titleX, titleY, titleX + titleWidth, titleY + m_HeaderHeight),
+			D2D1::RectF(titleX, titleY, titleX + titleWidth, titleY + m_TitleSize.height),
 			m_Options.titleColor, true, true);
 	}
 	if (m_Options.close)
@@ -541,6 +542,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 		}
 	}
 	Gfx::Canvas::Draw(m_Target.Get(), m_Text, *m_TextFormat, rect, m_Options.font, true, true);
+	m_Target->PopAxisAlignedClip();
 	auto hr = m_Target->EndDraw();
 	m_Target->SetTarget(nullptr);
 	if (FAILED(hr))

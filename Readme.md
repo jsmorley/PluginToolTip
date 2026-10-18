@@ -88,7 +88,7 @@ they do not apply a bitmap bevel to the tooltip background, text, or icons.
 | [SP]20[/SP]Command[SP]20[/SP] | Result |
 | --- | --- |
 | `Show` | Opens at the mouse position after the configured delay. |
-| `Show x y` | Opens using an anchor relative to the skin's upper-left corner, in skin units. Coordinates scale with Windows DPI and Rainmeter zoom; negative and fractional values are supported. The tail of a balloon tooltip attempts to stay at these coordinates when FollowMouse=0. |
+| `Show x y` | Opens using an anchor relative to the skin's upper-left corner, in pixels. Coordinates scale with Windows DPI and Rainmeter zoom; negative and fractional values are supported. The tail of a balloon tooltip attempts to stay at these coordinates when FollowMouse=0. |
 | `Hide` or `Dismiss` | Immediately closes this instance and cancels a pending display. |
 | `Toggle` or `Toggle x y` | Closes this instance if requested/open; otherwise behaves like Show. |
 | `Update` | Resolves the current options/text and redraws this instance immediately if open. |
@@ -149,42 +149,42 @@ timers and do not require frequent skin updates. Redraws do not restart the time
 
 Color options accept `R,G,B`, `R,G,B,A`, six-digit `#RRGGBB`, or eight-digit `#RRGGBBAA` hex values.
 
-Lengths below are skin units; the plugin uses the skin's effective DPI/zoom scale when supported
+Lengths below are pixels and are zoom / DPI aware; the plugin uses the skin's effective DPI/zoom scale when supported
 by the Rainmeter API, including Windows display scaling and Rainmeter zoom exactly once.
 The plugin exports HandleSkinSettingChange to declare DPI awareness to Rainmeter, preventing
 the host from pre-scaling W, H and FontSize before the plugin scales them for rendering.
 On older hosts without the effective-scale API, the plugin uses the skin window's Windows DPI.
 Open tooltips detect scale changes, resize their rendering buffers, and rerasterize icons without
 waiting for a measure update. `Show x y` coordinates are relative to the skin's upper-left
-corner in these same scaled skin units. They follow the skin when it moves or changes scale.
+corner in these same scaled pixels. They follow the skin when it moves or changes scale.
 
 | [SP]20[/SP]Option[SP]20[/SP] | [SP]10[/SP]Default[SP]10[/SP] | Meaning |
 | --- | --- | --- |
-| `StrokeSize` | `1` | Outer outline width in skin units, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. Straight outer edges align to the physical pixel grid for crisp opaque strokes at whole-pixel widths; fractional widths, curves and the tail remain antialiased. |
+| `StrokeSize` | `1` | Outer outline width in pixels, including the balloon tail. Fractional values such as `0.5`, `1.25`, and `2.5` are supported; `0` disables the outline. Clamped to 0–32. Straight outer edges align to the physical pixel grid for crisp opaque strokes at whole-pixel widths; fractional widths, curves and the tail remain antialiased. |
 | `StrokeColor` | `0,0,0,255` | Color of the outer outline; defaults to opaque black. |
 | `StrokeBevel` | `None` | `None` uses StrokeColor throughout. `Raised` uses a light top/left and dark bottom/right border; `Sunken` reverses them. Applies to rectangle and balloon outlines, including the tail. Values are case-insensitive. |
 | `StrokeBevelLightColor` | derived from StrokeColor | Bevel highlight color. Defaults to StrokeColor blended 45% toward white, preserving its alpha. |
 | `StrokeBevelDarkColor` | derived from StrokeColor | Bevel shadow color. Defaults to StrokeColor blended 45% toward black, preserving its alpha. |
 | `StrokeBevelProfile` | `Linear` | `Linear`, `Curved`, `Concave`, or `Bulged`. Case-insensitive; invalid values log a warning and use Linear. |
-| `StrokeBevelWidth` | StrokeSize | Width of the shaded band, centered within the outline, in skin units. Supports fractions and is clamped to 0–StrokeSize. The remainder uses StrokeColor; 0 gives a flat outline. |
+| `StrokeBevelWidth` | StrokeSize | Width of the shaded band, centered within the outline, in pixels. Supports fractions and is clamped to 0–StrokeSize. The remainder uses StrokeColor; 0 gives a flat outline. |
 | `StrokeBevelRelief` | `1` | Shading strength from 0 to 1; 0 gives a flat StrokeColor outline, 1 uses the full highlight/shadow colors. |
 | `StrokeBevelSmoothness` | `0` | Highlight-to-shadow transition softness from 0 (sharp join) to 1 (broad blend). |
 | `StrokeBevelLightAngle` | `225` | Light source direction in degrees clockwise: 0 right, 90 bottom, 180 left, 270 top. 225 lights the top/left. Angles wrap every 360 degrees. |
-| `W`, `H` | automatic | Fixed text content width/height. Padding, title/icon row, stroke and tail are added outside the text content. |
+| `W`, `H` | automatic | Overall tooltip body width/height in pixels, including padding and stroke, excluding the balloon tail. Zero or omitted means automatic sizing independently on each axis. |
 | `Padding` | `8,6,8,6` | Left, top, right, bottom padding around the contents. |
 | `Title` | empty | Optional heading using the selected font face and TitleFontSize in bold, with matching inline formatting applied. |
 | `TitleFontSize` | `FontSize` | Base heading font size, independent of the body text. Matching inline Size settings override it. Updated while open, including the space reserved for the heading. |
 | `TitleColor` | `FontColor` | Heading color, separate from the body text. Supports the same RGB/RGBA and hex formats as other colors, including a leading `#`. Unset or invalid values use the current FontColor. Updated while open. |
-| `TitleX`, `TitleY` | automatic | Title text origin in skin units. TitleX is measured from the window's left edge. TitleY is measured from the body’s top edge, excluding the balloon tail, so changing the tail from top to bottom preserves the title’s position within the body. Set either axis independently; unset/empty axes retain automatic placement after padding, stroke and icon. |
-| `TextX`, `TextY` | automatic | Body text layout origin in skin units. Plain values are coordinates from the tooltip window's top-left corner. A suffix r/R makes the value relative to the title's left/right edge for TextX or top/bottom edge for TextY. Unset/empty axes retain automatic placement. Inline formatting and text effects move with the text. |
+| `TitleX`, `TitleY` | automatic | Title origin from the body’s top-left corner, excluding the tail. Plain values are exact positions; r/R suffixes refer to the icon’s left/top or right/bottom edges. Without an icon, relative values use the body origin. Unset axes use automatic placement. |
+| `TextX`, `TextY` | automatic | Body text layout origin in pixels. Plain values are coordinates from the rectangular body's top-left corner, excluding the tail. A suffix r/R refers to the title's left/top or right/bottom edges; without Title it refers to the icon, and without either it refers to the body origin. Unset/empty axes retain automatic placement. Inline formatting and text effects move with the text. |
 | `Icon` | `None` | `Info` / `Information`, `Warning`, `Error`, `Question`, an `.ico` or `.svg` file path relative to the skin, or inline SVG markup. |
-| `IconW`, `IconH` | `24`, `24` | Icon width and height in skin units (1–512). Set either dimension alone to calculate the other from the image's aspect ratio; set both to specify the icon area. If neither is set, the area is 24×24. SVGs are rasterized at the skin scale and retain their SVG aspect-ratio behavior. |
+| `IconW`, `IconH` | `24`, `24` | Icon width and height in pixels (1–512). Set either dimension alone to calculate the other from the image's aspect ratio; set both to specify the icon area. If neither is set, the area is 24×24. SVGs are rasterized at the skin scale and retain their SVG aspect-ratio behavior. |
 | `Balloon` | `0` | `1` adds rounded balloon corners and a tail. `0` draws a square rectangle. |
 | `TailPosition` | `Center` | `Left` places the tail just left of the visible cursor, `Center` directly beneath it, and `Right` just right of it. Applies to mouse-anchored balloons in Auto/Below/Above positions. Case-insensitive; invalid values use Center. |
 | `TailGap` | unset | Gap in physical screen pixels from the cursor's visible bottom to the popup's tail edge when below (top edge when above). Overrides OffsetY for vertical balloon placement. 0 touches the edge; values are rounded to whole pixels and clamped to 0–8192. Unset preserves OffsetY. Explicit Show x y uses the supplied point instead of cursor bounds. |
 | `CornerRadius` | `6` | Balloon corner radius. The body uses native Direct2D rounded-rectangle geometry with an attached balloon tail. The balloon background and outline are supersampled for smoother curves; text and icons are drawn afterward at their original resolution to retain sharpness. Supersampling adapts to the tooltip size to limit temporary buffer memory, which is released when the tip closes. |
 | `CloseButton` | `0` | `1` adds a clickable close button to the formatted heading row. |
-| `CloseButtonX`, `CloseButtonY` | automatic | Top-left corner of the close button's 22 by 22 clickable area, measured from the tooltip window's top-left corner in skin units. The X glyph is drawn inside that area. Requires CloseButton=1; unset/empty axes retain automatic placement. |
+| `CloseButtonX`, `CloseButtonY` | automatic | Top-left corner of the close button's 22 by 22 clickable area, measured from the rectangular body's top-left corner in pixels, excluding the tail. The X glyph is drawn inside that area. Requires CloseButton=1; unset/empty axes retain automatic placement. |
 | `FontFace` | `Arial` | Font family. Installed fonts and fonts under `@Resources\Fonts` are supported. |
 | `FontSize` | `10` | Font size in points, including fractional sizes. |
 | `FontColor` | `0,0,0,255` | Text color, independent of the entire tooltip background. |
@@ -195,8 +195,8 @@ corner in these same scaled skin units. They follow the skin when it moves or ch
 | `StringEffect` | `None` | None, Shadow or Border, using Rainmeter's 1-unit text effect. |
 | `FontEffectColor` | `0,0,0,255` | Text shadow/border color; separate from the tooltip stroke. |
 | `AntiAlias` | `1` | Antialiased text; set 0 for aliased text. |
-| `ClipString` | `2` | 0: no wrap/ellipsis; 1: wrap/trim to W/H; 2: auto size up to optional maximums, wrapping/trimming as necessary. |
-| `ClipStringW`, `ClipStringH` | unset | Automatic maximum text width/height with ClipString=2; ignored when W/H respectively are set. |
+| `ClipString` | `2` | 0: no wrap/ellipsis; 1: wrap/trim within the available body area; 2: auto size up to optional maximums, wrapping/trimming as necessary. |
+| `ClipStringW`, `ClipStringH` | unset | Maximum Text layout width/height with ClipString=2, also limited by the available space inside fixed W/H. |
 | `TrailingSpaces` | `0` | 1 preserves leading/trailing spaces in the text returned by Rainmeter. |
 | `Prefix`, `Postfix` | empty | Text before/after Text. |
 | `NumOfDecimals` | `0` (1 with AutoScale or a decimal Scale) | Decimal precision for bound numeric measures, from 0 to 16. Percentual defaults to 0. |
@@ -204,8 +204,8 @@ corner in these same scaled skin units. They follow the skin when it moves or ch
 | `AutoScale` | `0` | 0, 1 (1024), 1k, 2 (1000), 2k; suffixes k/M/G/T/P/E. |
 | `Percentual` | `0` | 1 uses the bound measure's percentage of its Rainmeter range. |
 
-The tooltip is a separate popup rather than a meter. Its W/H describe the content box and
-StringAlign describes alignment inside that box. General meter placement, transformations,
+The tooltip is a separate popup rather than a meter. Its W/H describe the rectangular body, excluding the tail, and
+StringAlign describes alignment inside the available Text layout. General meter placement, transformations,
 containers, meter actions, and meter groups are not tooltip layout options. Shadows can extend outside the calculated layout; provide sufficient padding/size.
 
 ## ToolTip Background
@@ -342,7 +342,7 @@ scale. Text retains pixel snapping for sharp rendering; any remaining fractional
 alignment correction is applied to the icon instead. Automatic row height uses
 the visible content rather than adding the font's empty space below its glyphs.
 SVG icons have transparent space above and below the artwork removed before
-scaling and drawing. With only `IconH=26`, the visible artwork is 26 skin units
+scaling and drawing. With only `IconH=26`, the visible artwork is 26 pixels
 high; the missing width uses the vertically trimmed aspect ratio. Title, or
 Text when there is no title, is centered against that same trimmed image.
 Horizontal transparent margins are preserved. With both dimensions set, SVG's
@@ -351,9 +351,9 @@ empty vertical margins are excluded from the drawn icon and tooltip layout.
 Trimming is calculated when the source, dimensions or scale change; the SVG file
 is not modified. A fully transparent SVG uses the full icon area as a fallback.
 Explicit TitleY/TextY still override automatic text centering.
-When there is no title, the icon follows the TextY position of the text row.
-Automatic height includes the positioned icon and text plus bottom padding;
-an absolute TextY does not reserve the top balloon tail a second time.
+IconY positions the icon independently; setting TextY does not move the icon.
+Automatic height includes positioned contents plus bottom padding and stroke clearance;
+all element Y coordinates exclude the balloon tail.
 These dimension options also resize standard and ICO icons.
 
 Set only `IconW` or only `IconH` to preserve the image's aspect ratio and
@@ -361,7 +361,7 @@ calculate the missing dimension. For SVGs, the ratio uses the `viewBox`,
 or intrinsic width and height when no viewBox is present, with vertical
 transparent margins removed. If no usable
 ratio is available, a square is assumed. Calculated dimensions are limited to
-1–512 skin units. SVG root width/height attributes do not override the requested
+1–512 pixels. SVG root width/height attributes do not override the requested
 icon size. Transparent margins to the left and right remain part of the image.
 
 Rainmeter variables and measure references in `Icon`, `IconW` and `IconH` are
@@ -381,44 +381,150 @@ filters and external image references are unsupported. Convert text to paths.
 Invalid/unreadable SVGs log a warning and the tooltip continues without an icon.
 SVG documents are limited to 16 MiB.
 
-### Title, text and close-button positioning
+## Spacing Considerations
 
-Plain title, text and close-button coordinates accept formulas and fractional values and scale
-with the skin. TitleY is relative to the tooltip body’s top edge and excludes the balloon tail.
-Other plain coordinates are absolute within the entire tooltip window, including a top tail.
-TextY with an r/R suffix follows the title’s actual top/bottom edge, including its body-relative TitleY.
-Moving the body text adjusts the tooltip dimensions to include its right and bottom
-edges and padding. Title and close-button coordinates do not independently expand the window.
-The text layout retains its original width and height, wrapping, alignment and clipping settings
-when moved. The close button's clickable area follows its new position. All six coordinates update while
-the tooltip is open. For example:
+Positions and distances below are **pixels**, aware of Rainmeter zoom and Windows
+DPI scaling. They scale once with the skin. FontSize and TitleFontSize retain
+their usual font-size interpretation.
+
+### Default Behavior
+
+With no manual size or positioning settings, the tooltip fits its contents:
+
+| Element | Automatic behavior |
+| --- | --- |
+| Overall size | Width and height fit the positioned contents plus right/bottom padding and stroke clearance. The balloon tail adds 12 pixels outside the body. |
+| Padding | 8 pixels left, 6 top, 8 right, 6 bottom. StrokeSize adds clearance to automatic content origins. |
+| Icon with Title | Icon is beside Title, with 6 pixels between the icon's right edge and Title. Title is vertically centered against the icon's visible artwork. |
+| Icon without Title | Icon is beside Text instead, with the same 6-pixel gap and vertical centering. |
+| Title without Icon | Starts at the left/top content inset. |
+| Text with Title | Starts at the left inset, 5 pixels below the title/icon row. |
+| Text without Title or Icon | Starts at the left/top content inset. No empty title row is reserved. |
+| Close button | When enabled, starts at the top-right. Its clickable area is 22 by 22 pixels; automatic layout reserves 24 pixels horizontally. The X glyph is inset inside that area. |
+
+Automatic icon-row centering measures visible text pixels and preserves pixel
+snapping to keep text sharp. SVG icons have transparent space above/below their
+artwork removed before sizing and drawing; horizontal transparency remains part
+of the image. Font layout boxes can still include whitespace beyond their visible
+glyphs. Automatic Text measurement retains a small 1-pixel allowance. Text effects
+can extend outside measured bounds, so allow room for them in padding.
+
+### Manual Settings
+
+**The origin for every element is the rectangular body's upper-left corner**,
+excluding the balloon tail. Content positions therefore stay the same inside the
+body when the tail flips above or below. There is no alternate coordinate mode.
+
+| Option | Default | What it changes |
+| --- | --- | --- |
+| `W`, `H` | automatic | Overall body width/height, including padding and stroke but excluding the tail. Set each independently. Omitted sizes that axis automatically. A fixed dimension stays fixed even if contents do not fit. |
+| `Padding` | 8,6,8,6 | Left, top, right, bottom insets for automatic placement; right/bottom padding also contributes to automatic sizing. It is inside fixed W/H. |
+| `IconX`, `IconY` | automatic | Exact icon position: pixels from the body's left edge and down from its top. IconX also moves automatically adjacent Title/Text; explicit TitleX/TextX overrides that relationship. IconY disables automatic icon/text vertical centering. |
+| `TitleX`, `TitleY` | automatic | Exact Title origin, or relative to the icon using r/R. Without an icon, relative coordinates use the body origin. Explicit TitleY overrides automatic title centering. |
+| `TextX`, `TextY` | automatic | Exact Text origin, or relative to Title using r/R. Without Title, the reference is Icon; without either, it is the body origin. Explicit TextY overrides automatic row spacing and vertical centering. |
+| `IconGap` | 6 | Automatic horizontal gap between icon and adjacent Title/Text. Explicit TitleX/TextX bypasses it. |
+| `TitleTextGap` | 5 | Automatic vertical gap between the title/icon row and Text. Explicit TextY, including a relative value, bypasses it. Has no effect without both Title and Text. |
+| `CloseButtonX`, `CloseButtonY` | automatic | Exact top-left of the close button's 22 by 22 clickable area. The glyph and clickable area move together. Requires CloseButton=1. |
+
+Set X and Y independently. Unset or empty axes keep automatic placement; explicit
+zero means exactly zero. **Explicit coordinates do not add padding, stroke
+clearance or automatic gaps.** Negative and fractional coordinates are allowed;
+negative positions can be clipped and do not shift other contents into view.
+Manual overlaps are allowed. Plain absolute coordinates accept formulas.
+IconGap/TitleTextGap accept fractional values from 0 to 8192.
+
+When setting IconY, set TitleY or TextY too if you want to arrange both manually.
+Otherwise the text keeps its default origin without automatic icon centering.
+Automatic TextY with a Title follows the title/icon row plus TitleTextGap; moving
+the title or icon adjusts the row's bottom. An explicit TextY overrides that rule.
+
+TitleX/Y and TextX/Y accept a number followed by `r` or `R`:
+
+| Suffix | X reference edge | Y reference edge |
+| --- | --- | --- |
+| `r` | Left | Top |
+| `R` | Right | Bottom |
+
+The number is an offset from the referenced element's edge. For Title the
+reference is Icon. For Text it is Title, falling back to Icon. When no reference
+exists, both suffixes use the body's top-left corner. Text reference edges use
+the font layout box rather than individual glyph edges. Relative offsets can be
+negative or fractional; bare r/R means zero. Variables are resolved first;
+relative offsets themselves are numeric, rather than formulas.
+
+For example:
 
 ```ini
-TitleFontSize=16
-TitleX=20
-TitleY=24
-TextX=20
-TextY=54
-CloseButton=1
-CloseButtonX=300
-CloseButtonY=20
-```
+IconX=12
+IconY=8
+IconH=24
 
-To position the body below the title and align their left edges:
+; Title starts 6 pixels right of the icon, at its top.
+TitleX=6R
+TitleY=0r
 
-```ini
+; Text starts at the title's left edge, 5 pixels below its bottom.
 TextX=0r
-TextY=4R
+TextY=5R
 ```
 
-`TextY=4r` starts 4 skin units below the title's top; `TextY=4R` starts 4 units below
-its bottom. `TextX=4r` starts 4 units to the right of the title's left edge;
-`TextX=4R` starts 4 units to the right of its right edge. Negative and fractional offsets
-are supported, as are bare `r` and `R` for a zero offset. Relative offsets are numeric
-values (variables are resolved first); plain absolute values also accept formulas.
-The title's current position and measured text size determine the reference edges, including
-TitleFontSize and inline formatting, and relative positions are recalculated on every update.
-If Title is empty, both suffixes instead offset the body's automatic position.
+With no Icon or Title, TextX=10, TextX=10r and TextX=10R all mean 10 pixels from
+the body's left edge. TextY=10, TextY=10r and TextY=10R all mean 10 pixels below
+its top. An omitted TextX/Y instead uses automatic padding.
+
+A fixed W provides the width available for text wrapping after its X position,
+right padding, stroke clearance and an automatically placed close button. H
+limits the available vertical area. ClipString and ClipStringW/H still control
+text wrapping/clipping within that space. Moving text can change its available
+width/height. Content outside a fixed body is clipped; it does not enlarge the
+tooltip. With automatic W/H, moving Title, Text, Icon or the close button right/down
+can enlarge the body to include its bounds, padding and stroke clearance.
+
+For a fully specified layout:
+
+```ini
+W=280
+H=100
+Padding=0,0,0,0
+IconH=24
+IconX=12
+IconY=12
+TitleX=46
+TitleY=12
+TextX=12
+TextY=44
+CloseButton=1
+CloseButtonX=246
+CloseButtonY=8
+```
+
+Define Icon, Title and Text separately. Omit W/H for automatic size. Omit element
+positions for automatic layout, optionally changing IconGap and TitleTextGap.
+All settings and relative reference bounds update while the tooltip is open.
+
+Even with W/H and every element position explicitly set, these behaviors remain:
+
+* The balloon tail has a fixed 12-pixel height outside the body, scaled with zoom/DPI.
+* Font metrics can leave whitespace above/below visible Title/Text glyphs. Exact
+  text coordinates position the layout origin, not necessarily the first painted pixel.
+* Setting only IconW or IconH calculates the missing dimension from the image's
+  aspect ratio. SVG vertical transparent margins are trimmed before sizing/drawing;
+  horizontal transparent margins remain.
+
+Bottom padding is controllable through the fourth Padding value. With automatic H,
+it is added below the lowest content bounds, together with stroke clearance. With
+fixed H, padding does not enlarge the body: the visible space below Title/Text
+comes from the chosen height, element positions and font metrics. Bottom padding
+reduces the available Text layout height inside that fixed body. There is no extra
+unconfigurable bottom-padding setting.
+
+Any dimensions or positions left unset still use the default sizing, placement,
+gaps and icon/text centering described above.
+
+
+These rules change older W/H settings, which sized only the Text area, and older
+absolute TextY/CloseButtonY settings, which included a top tail. Existing settings
+may need adjustment; all values now follow the same body-based rules above.
 
 ## Inline string formatting
 
@@ -507,7 +613,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `ReshowDelay` | `100` | Delay when reopened within one second of its last hide. |
 | `AutoPopDelay` | `0` | Visible timeout in milliseconds; the default of 0 keeps it open until Hide or dismissal. |
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute, or a pair: Below \| Left, Below \| Right, Above \| Left, Above \| Right. Auto starts below and flips above near the monitor's bottom. Pairs select both vertical and horizontal placement relative to the anchor. |
-| `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in skin units. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
+| `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in pixels. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
 | `FollowMouse` | `1` | 1 follows the cursor while open; set 0 to leave it at its initial position. With KeepOnScreen=1, balloons using Auto, Above, or Below (including Above/Below Left/Right pairs) flip to the other side near the top/bottom of the screen, attempting to keep the tail pointed at the cursor. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
 | `AlwaysTip` | `1` | 1 allows inactive skins; 0 requires the skin to be the foreground root window. |
@@ -517,7 +623,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 
 With Position=Absolute, Show x y gives the popup's top-left position relative to the skin,
 except for a balloon with FollowMouse=0, where it anchors the tail. With plain Show,
-OffsetX/OffsetY are the absolute top-left coordinates, scaled from skin units. Other positions
+OffsetX/OffsetY are the absolute top-left coordinates, scaled from pixels. Other positions
 treat Show x y as an anchor. Balloons point their tail toward the anchor vertically.
 For Auto/Below/Above balloon positioning, the body shifts left to align its tail
 with that anchor. Cursor bounds exclude transparent bitmap padding and account for
@@ -548,7 +654,7 @@ TailGap=4
 
 Use `TailPosition=Left` for just left of the cursor or `Center` for directly under
 it. TailGap stays in physical pixels regardless of skin scale; OffsetX/OffsetY
-are in scaled skin units. Position=Auto may flip above near a monitor's bottom.
+are in scaled pixels. Position=Auto may flip above near a monitor's bottom.
 Tail settings are reread while the tooltip is open, like the other options.
 
 Escape dismisses requested/open tooltips. The plugin also hides tooltips when the owning skin

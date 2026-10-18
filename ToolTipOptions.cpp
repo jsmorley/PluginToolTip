@@ -144,6 +144,8 @@ void Options::ReadSizeOptions()
 	};
 	width = dimension(L"W");
 	height = dimension(L"H");
+	iconGap = static_cast<float>(std::clamp(Number(L"IconGap", 6), 0.0, 8192.0));
+	titleTextGap = static_cast<float>(std::clamp(Number(L"TitleTextGap", 5), 0.0, 8192.0));
 	clipW = dimension(L"ClipStringW");
 	clipH = dimension(L"ClipStringH");
 	clip = static_cast<int>(std::clamp(Number(L"ClipString", 2), 0.0, 2.0));
@@ -173,8 +175,8 @@ void Options::ReadAppearanceOptions()
 		}
 		return static_cast<float>(std::clamp(Number(key, 0), -8192.0, 8192.0));
 	};
-	titleX = coordinate(L"TitleX");
-	titleY = coordinate(L"TitleY");
+	iconX = coordinate(L"IconX");
+	iconY = coordinate(L"IconY");
 	closeButtonX = coordinate(L"CloseButtonX");
 	closeButtonY = coordinate(L"CloseButtonY");
 	auto textCoordinate = [&](const wchar_t* key) -> std::optional<TextCoordinate> {
@@ -200,6 +202,8 @@ void Options::ReadAppearanceOptions()
 		}
 		return TextCoordinate{std::clamp(offset, -8192.0f, 8192.0f), suffix};
 	};
+	titleX = textCoordinate(L"TitleX");
+	titleY = textCoordinate(L"TitleY");
 	textX = textCoordinate(L"TextX");
 	textY = textCoordinate(L"TextY");
 	effectColor = Color(Read(L"FontEffectColor", L"0,0,0,255"), D2D1::ColorF(0));

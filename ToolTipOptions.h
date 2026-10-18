@@ -56,6 +56,10 @@ struct Options
 	float size = 10;
 	float width = 0;
 	float height = 0;
+	float iconGap = 6;
+	float titleTextGap = 5;
+	std::optional<float> iconX;
+	std::optional<float> iconY;
 	float clipW = 0;
 	float clipH = 0;
 	float padding[4] = {8, 6, 8, 6};
@@ -65,8 +69,8 @@ struct Options
 	float offsetX = 0;
 	float offsetY = 20;
 	float tailGap = -1; // Unset: retain OffsetY's existing scaled gap.
-	std::optional<float> titleX;
-	std::optional<float> titleY;
+	std::optional<TextCoordinate> titleX;
+	std::optional<TextCoordinate> titleY;
 	std::optional<float> closeButtonX;
 	std::optional<float> closeButtonY;
 	std::optional<TextCoordinate> textX;

@@ -28,52 +28,81 @@ POINT ToolTipMeasure::GetSkinAnchor(float effectiveScale) const
 	return point;
 }
 
+namespace {
+float ResolveCoordinate(const std::optional<ToolTip::TextCoordinate>& value, float automatic,
+	float start, float length, bool reference)
+{
+	if (!value)
+	{
+		return automatic;
+	}
+	if (!value->relative)
+	{
+		return value->offset;
+	}
+	if (!reference)
+	{
+		return value->offset;
+	}
+	return start + value->offset + (value->relative == L'R' ? length : 0);
+}
+}
+
+float ToolTipMeasure::GetTitleX() const
+{
+	const float inset = m_Options.padding[0] + m_Options.borderWidth;
+	const float iconLeft = m_Options.iconX.value_or(inset);
+	return ResolveCoordinate(m_Options.titleX,
+		m_Icon ? iconLeft + m_IconWidth + m_Options.iconGap : inset, iconLeft, m_IconWidth,
+		m_Icon != nullptr);
+}
+
 float ToolTipMeasure::GetTitleY(float top) const
 {
+	const auto icon = GetIconRect(0);
 	return top +
-		m_Options.titleY.value_or(
-			m_Options.padding[1] + m_Options.borderWidth + m_TitleAlignmentOffset);
+		ResolveCoordinate(m_Options.titleY,
+			m_Options.padding[1] + m_Options.borderWidth + m_TitleAlignmentOffset, icon.top,
+			m_IconHeight, m_Icon != nullptr);
 }
 
 D2D1_RECT_F ToolTipMeasure::GetTextRect(float top) const
 {
 	const float x = m_Options.padding[0] + m_Options.borderWidth;
-	const float y = top + m_Options.padding[1] + m_Options.borderWidth;
-	const float titleX = m_Options.titleX.value_or(x + (m_Icon ? m_IconWidth + 6 : 0));
-	const float titleY = GetTitleY(top);
-	auto coordinate = [&](const std::optional<ToolTip::TextCoordinate>& value, float automatic,
-						  float titleStart, float titleLength) {
-		if (!value)
+	const float y = m_Options.padding[1] + m_Options.borderWidth;
+	const auto icon = GetIconRect(0);
+	const bool title = !m_Options.title.empty();
+	const float automaticX = !title && m_Icon ? icon.right + m_Options.iconGap : x;
+	float automaticY = y + m_HeaderHeight + m_TextAlignmentOffset;
+	if (title && (m_Options.titleY || m_Options.iconY || m_Options.closeButtonY))
+	{
+		automaticY = GetTitleY(0) + m_TitleSize.height;
+		if (m_Icon)
 		{
-			return automatic;
+			automaticY = std::max(automaticY, icon.bottom);
 		}
-		if (!value->relative)
+		if (m_Options.close)
 		{
-			return value->offset;
+			automaticY =
+				std::max(automaticY, m_Options.closeButtonY.value_or(m_Options.padding[1]) + 22);
 		}
-		if (m_Options.title.empty())
-		{
-			return automatic + value->offset;
-		}
-		return titleStart + value->offset + (value->relative == L'R' ? titleLength : 0);
-	};
-	const float automaticX = x + (m_Options.title.empty() && m_Icon ? m_IconWidth + 6 : 0);
-	const float left = coordinate(m_Options.textX, automaticX, titleX, m_TitleSize.width);
-	const float textTop = coordinate(
-		m_Options.textY, y + m_HeaderHeight + m_TextAlignmentOffset, titleY, m_TitleSize.height);
+		automaticY += m_Options.titleTextGap;
+	}
+	const float left = ResolveCoordinate(m_Options.textX, automaticX,
+		title ? GetTitleX() : icon.left, title ? m_TitleSize.width : m_IconWidth, title || m_Icon);
+	const float textTop = top +
+		ResolveCoordinate(m_Options.textY, automaticY, title ? GetTitleY(0) : icon.top,
+			title ? m_TitleSize.height : m_IconHeight, title || m_Icon);
 	return D2D1::RectF(
 		left, textTop, left + m_TextLayoutSize.width, textTop + m_TextLayoutSize.height);
 }
 
 D2D1_RECT_F ToolTipMeasure::GetIconRect(float top) const
 {
-	const float x = m_Options.padding[0] + m_Options.borderWidth;
-	const float y = m_Options.title.empty()
-		? (m_Options.textY ? GetTextRect(top).top
-						   : top + m_Options.padding[1] + m_Options.borderWidth +
-					  m_IconAlignmentPadding + m_IconRowOffset)
-		: top + m_Options.padding[1] + m_Options.borderWidth + m_IconAlignmentPadding +
-			m_IconRowOffset;
+	const float x = m_Options.iconX.value_or(m_Options.padding[0] + m_Options.borderWidth);
+	const float y = top +
+		m_Options.iconY.value_or(m_Options.padding[1] + m_Options.borderWidth +
+			m_IconAlignmentPadding + m_IconRowOffset);
 	return D2D1::RectF(x, y, x + m_IconWidth, y + m_IconHeight);
 }
 
@@ -99,27 +128,42 @@ void ToolTipMeasure::UpdateLayout()
 	m_TitleFormat = std::make_unique<Gfx::TextFormat>();
 	m_Options.Configure(*m_TextFormat, m_Fonts.get(), m_Text);
 	m_Options.Configure(*m_TitleFormat, m_Fonts.get(), m_Options.title, true);
-	auto maxW = m_Options.width > 0					 ? m_Options.width
-		: m_Options.clip == 2 && m_Options.clipW > 0 ? m_Options.clipW
-													 : 8192;
-	auto size =
+	m_TitleAlignmentOffset = 0;
+	m_TextAlignmentOffset = 0;
+	m_IconAlignmentPadding = 0;
+	m_IconRowOffset = 0;
+	m_HeaderHeight = 0;
+	m_TextLayoutSize = D2D1::SizeF();
+	m_TitleSize = D2D1::SizeF();
+	const float rightInset = m_Options.padding[2] + m_Options.borderWidth;
+	const float closeSpace = m_Options.close && !m_Options.closeButtonX ? 24.0f : 0;
+	const float titleWidth = m_Options.width > 0
+		? std::max(1.0f, m_Options.width - GetTitleX() - rightInset - closeSpace)
+		: 8192.0f;
+	if (!m_Options.title.empty())
+	{
+		m_TitleSize = Gfx::Canvas::Measure(m_Options.title, *m_TitleFormat, titleWidth, true);
+	}
+	float maxW = m_Options.width > 0
+		? std::max(1.0f, m_Options.width - GetTextRect(0).left - rightInset - closeSpace)
+		: 8192.0f;
+	if (m_Options.clip == 2 && m_Options.clipW > 0)
+	{
+		maxW = std::min(maxW, m_Options.clipW);
+	}
+	const auto size =
 		m_Text.empty() ? D2D1::SizeF() : Gfx::Canvas::Measure(m_Text, *m_TextFormat, maxW, true);
-	float w = m_Options.width > 0 ? m_Options.width
-								  : std::min(size.width + (m_Text.empty() ? 0 : 1), maxW);
-	float h = m_Options.height > 0 ? m_Options.height : size.height + (m_Text.empty() ? 0 : 1);
-	if (m_Options.clip == 2 && m_Options.height == 0 && m_Options.clipH > 0)
+	const float w =
+		m_Options.width > 0 ? maxW : std::min(size.width + (m_Text.empty() ? 0 : 1), maxW);
+	float h = size.height + (m_Text.empty() ? 0 : 1);
+	if (m_Options.clip == 2 && m_Options.clipH > 0)
 	{
 		h = std::min(h, m_Options.clipH);
 	}
-	m_TitleSize = m_Options.title.empty()
-		? D2D1::SizeF()
-		: Gfx::Canvas::Measure(m_Options.title, *m_TitleFormat, 8192, true);
-	m_TitleAlignmentOffset = 0;
-	m_IconAlignmentPadding = 0;
-	m_IconRowOffset = 0;
-	if (m_Icon && !m_Options.title.empty())
+	if (m_Icon && !m_Options.title.empty() && !m_Options.iconY)
 	{
-		const auto ink = Gfx::Canvas::MeasureInk(m_Options.title, *m_TitleFormat);
+		const auto ink = Gfx::Canvas::MeasureInk(
+			m_Options.title, *m_TitleFormat, m_TitleSize.width, m_TitleSize.height);
 		m_IconRowOffset =
 			std::max(0.0f,
 				(m_Options.titleY ? m_TitleSize.height : ink.bottom - ink.top) - m_IconHeight) /
@@ -137,12 +181,14 @@ void ToolTipMeasure::UpdateLayout()
 		? 0
 		: std::max(rowHeight + m_IconAlignmentPadding,
 			  m_Options.titleY ? m_TitleSize.height : m_TitleAlignmentOffset + m_TitleSize.height) +
-			(h > 0 ? 5 : 0);
-	float headerW =
-		m_TitleSize.width + (m_Icon ? m_IconWidth + 6 : 0) + (m_Options.close ? 24.0f : 0);
-	m_TextLayoutSize = D2D1::SizeF(m_Options.title.empty() ? w : std::max(w, headerW), h);
+			(h > 0 ? m_Options.titleTextGap : 0);
+	float headerW = m_TitleSize.width + (m_Icon ? m_IconWidth + m_Options.iconGap : 0) +
+		(m_Options.close ? 24.0f : 0);
+	m_TextLayoutSize =
+		D2D1::SizeF(m_Options.width > 0 || m_Options.title.empty() ? w : std::max(w, headerW), h);
 	m_TextAlignmentOffset = 0;
-	if (m_Icon && m_Options.title.empty() && !m_Text.empty() && !m_Options.textY)
+	if (m_Icon && m_Options.title.empty() && !m_Text.empty() && !m_Options.textY &&
+		!m_Options.iconY)
 	{
 		const auto ink = Gfx::Canvas::MeasureInk(m_Text, *m_TextFormat, m_TextLayoutSize.width, h);
 		m_IconRowOffset = std::max(0.0f, ink.bottom - ink.top - m_IconHeight) / 2;
@@ -153,12 +199,10 @@ void ToolTipMeasure::UpdateLayout()
 	std::optional<float> titlePaintBottom, textPaintBottom;
 	const bool titleRow = !m_Options.title.empty() && !m_Options.titleY;
 	const bool textRow = m_Options.title.empty() && !m_Text.empty() && !m_Options.textY;
-	if (m_Icon && (titleRow || textRow) && InitializeGraphics())
+	if (m_Icon && !m_Options.iconY && (titleRow || textRow) && InitializeGraphics())
 	{
-		const float x = m_Options.padding[0] + m_Options.borderWidth;
 		auto rect = titleRow
-			? D2D1::RectF(m_Options.titleX.value_or(x + m_IconWidth + 6), GetTitleY(0),
-				  m_Options.titleX.value_or(x + m_IconWidth + 6) + m_TitleSize.width + 1,
+			? D2D1::RectF(GetTitleX(), GetTitleY(0), GetTitleX() + m_TitleSize.width + 1,
 				  GetTitleY(0) + m_TitleSize.height)
 			: GetTextRect(0);
 		if (!m_RowInk)
@@ -181,7 +225,7 @@ void ToolTipMeasure::UpdateLayout()
 			m_HeaderHeight =
 				std::max({GetIconRect(0).bottom, *titlePaintBottom,
 					m_Options.padding[1] + m_Options.borderWidth + (m_Options.close ? 22 : 0)}) -
-				m_Options.padding[1] - m_Options.borderWidth + (h > 0 ? 5 : 0);
+				m_Options.padding[1] - m_Options.borderWidth + (h > 0 ? m_Options.titleTextGap : 0);
 		}
 		else
 		{
@@ -192,19 +236,48 @@ void ToolTipMeasure::UpdateLayout()
 	m_TailHeight = m_Options.balloon ? 12.0f : 0;
 	// Horizontal coordinates are independent of the tail's orientation.
 	const auto textRect = GetTextRect(0);
-	const float headerWidth =
-		headerW + m_Options.padding[0] + m_Options.padding[2] + 2 * m_Options.borderWidth;
-	m_BodyWidth = std::clamp(std::max(headerWidth,
-								 textRect.right + m_Options.padding[2] + m_Options.borderWidth +
-									 (m_Options.title.empty() && m_Options.close ? 24.0f : 0.0f)),
-		1.0f, 8192.0f / m_Scale);
+	{
+		float right =
+			!m_Text.empty() ? textRect.right : m_Options.padding[0] + m_Options.borderWidth;
+		if (!m_Options.title.empty())
+		{
+			right = std::max(right, GetTitleX() + m_TitleSize.width);
+		}
+		if (m_Icon)
+		{
+			right = std::max(right, GetIconRect(0).right);
+		}
+		if (m_Options.close && m_Options.closeButtonX)
+		{
+			right = std::max(right, *m_Options.closeButtonX + 22);
+		}
+		m_BodyWidth = std::clamp(right + m_Options.padding[2] + m_Options.borderWidth +
+				(m_Options.close && !m_Options.closeButtonX ? 24 : 0),
+			1.0f, 8192.0f / m_Scale);
+	}
+	if (m_Options.width > 0)
+	{
+		m_BodyWidth = std::clamp(m_Options.width, 1.0f, 8192.0f / m_Scale);
+	}
+	if (m_Options.height > 0 && !m_Text.empty())
+	{
+		m_TextLayoutSize.height = std::max(0.0f,
+			m_Options.height - GetTextRect(0).top - m_Options.padding[3] - m_Options.borderWidth);
+		if (m_Options.clip == 2 && m_Options.clipH > 0)
+		{
+			m_TextLayoutSize.height = std::min(m_TextLayoutSize.height, m_Options.clipH);
+		}
+	}
 	auto bodyHeight = [&](float top) {
+		if (m_Options.height > 0)
+		{
+			return std::clamp(m_Options.height, 1.0f, 8192.0f / m_Scale);
+		}
 		float bottom = top + m_Options.padding[1] + m_Options.borderWidth;
-		if (!m_Text.empty() || m_Options.height > 0)
+		if (!m_Text.empty())
 		{
 			bottom = std::max(bottom,
-				textPaintBottom && m_Options.height <= 0 ? top + *textPaintBottom
-														 : GetTextRect(top).bottom);
+				textPaintBottom.has_value() ? top + *textPaintBottom : GetTextRect(top).bottom);
 		}
 		if (!m_Options.title.empty())
 		{
@@ -217,12 +290,14 @@ void ToolTipMeasure::UpdateLayout()
 		}
 		if (m_Options.close)
 		{
-			bottom =
-				std::max(bottom, m_Options.closeButtonY.value_or(top + m_Options.padding[1]) + 22);
+			bottom = std::max(bottom,
+				(m_Options.closeButtonY ? *m_Options.closeButtonY + top
+										: top + m_Options.padding[1]) +
+					22);
 		}
-		// TextY is a window coordinate, so subtract the top tail when converting
-		// the actual content bounds to a body height. Automatic/relative positions
-		// already include that tail in their drawing coordinates.
+		// All element coordinates include the body top while drawing.
+		// Exclude the tail when converting their bounds to the body height.
+
 		return std::clamp(
 			bottom - top + m_Options.padding[3] + m_Options.borderWidth, 1.0f, 8192.0f / m_Scale);
 	};
@@ -428,7 +503,8 @@ D2D1_POINT_2F ToolTipMeasure::GetCloseButtonOrigin() const
 {
 	return D2D1::Point2F(m_Options.closeButtonX.value_or(
 							 m_BodyWidth - m_Options.padding[2] - m_Options.borderWidth - 22),
-		m_Options.closeButtonY.value_or((m_TailTop ? m_TailHeight : 0) + m_Options.padding[1]));
+		(m_Options.closeButtonY ? *m_Options.closeButtonY + (m_TailTop ? m_TailHeight : 0)
+								: (m_TailTop ? m_TailHeight : 0) + m_Options.padding[1]));
 }
 
 bool ToolTipMeasure::HitTestCloseButton(LPARAM point) const

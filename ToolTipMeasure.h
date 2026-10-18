@@ -37,6 +37,7 @@ private:
 	Microsoft::WRL::ComPtr<ID2D1Bitmap1> LoadBackgroundImage();
 	void LoadFonts();
 	D2D1_RECT_F GetTextRect(float top) const;
+	float GetTitleX() const;
 	float GetTitleY(float top) const;
 	D2D1_RECT_F GetIconRect(float top) const;
 	D2D1_RECT_F GetBodyRect(float top) const;
