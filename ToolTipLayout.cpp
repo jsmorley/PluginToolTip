@@ -182,10 +182,7 @@ void ToolTipMeasure::UpdateLayout()
 		: std::max(rowHeight + m_IconAlignmentPadding,
 			  m_Options.titleY ? m_TitleSize.height : m_TitleAlignmentOffset + m_TitleSize.height) +
 			(h > 0 ? m_Options.titleTextGap : 0);
-	float headerW = m_TitleSize.width + (m_Icon ? m_IconWidth + m_Options.iconGap : 0) +
-		(m_Options.close ? 24.0f : 0);
-	m_TextLayoutSize =
-		D2D1::SizeF(m_Options.width > 0 || m_Options.title.empty() ? w : std::max(w, headerW), h);
+	m_TextLayoutSize = D2D1::SizeF(w, h);
 	m_TextAlignmentOffset = 0;
 	if (m_Icon && m_Options.title.empty() && !m_Text.empty() && !m_Options.textY &&
 		!m_Options.iconY)
