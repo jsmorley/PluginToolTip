@@ -383,8 +383,7 @@ SVG documents are limited to 16 MiB.
 
 ## Spacing Considerations
 
-Positions and distances below are **pixels**, aware of Rainmeter Zoom and Windows
-DPI scaling. 
+Positions and distances below are in **pixels**, aware of Rainmeter zoom and Windows DPI scaling.
 
 ### Default Behavior
 
