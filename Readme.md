@@ -383,9 +383,8 @@ SVG documents are limited to 16 MiB.
 
 ## Spacing Considerations
 
-Positions and distances below are **pixels**, aware of Rainmeter zoom and Windows
-DPI scaling. They scale once with the skin. FontSize and TitleFontSize retain
-their usual font-size interpretation.
+Positions and distances below are **pixels**, aware of Rainmeter Zoom and Windows
+DPI scaling. 
 
 ### Default Behavior
 
@@ -413,7 +412,7 @@ can extend outside measured bounds, so allow room for them in padding.
 
 **The origin for every element is the rectangular body's upper-left corner**,
 excluding the balloon tail. Content positions therefore stay the same inside the
-body when the tail flips above or below. There is no alternate coordinate mode.
+body when the tail flips above or below.
 
 | Option | Default | What it changes |
 | --- | --- | --- |
