@@ -418,7 +418,7 @@ body when the tail flips above or below.
 | --- | --- | --- |
 | `W`, `H` | automatic | Overall body width/height, including padding and stroke but excluding the tail. Set each independently. Omitted sizes that axis automatically. A fixed dimension stays fixed even if contents do not fit. |
 | `Padding` | 8,6,8,6 | Left, top, right, bottom insets for automatic placement; right/bottom padding also contributes to automatic sizing. It is inside fixed W/H. |
-| `IconX`, `IconY` | automatic | Exact icon position: pixels from the body's left edge and down from its top. IconX also moves automatically adjacent Title/Text; explicit TitleX/TextX overrides that relationship. IconY disables automatic icon/text vertical centering. |
+| `IconX`, `IconY` | automatic | Exact icon position: pixels from the body's left edge and down from its top. IconX automatically horizontally places adjacent Title/Text; explicit TitleX/TextX overrides that relationship. IconY disables automatic icon/text vertical centering. |
 | `TitleX`, `TitleY` | automatic | Exact Title origin, or relative to the icon using r/R. Without an icon, relative coordinates use the body origin. Explicit TitleY overrides automatic title centering. |
 | `TextX`, `TextY` | automatic | Exact Text origin, or relative to Title using r/R. Without Title, the reference is Icon; without either, it is the body origin. Explicit TextY overrides automatic row spacing and vertical centering. |
 | `IconGap` | 6 | Automatic horizontal gap between icon and adjacent Title/Text. Explicit TitleX/TextX bypasses it. |
