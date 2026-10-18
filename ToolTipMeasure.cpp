@@ -157,6 +157,13 @@ void ToolTipMeasure::Tick()
 	{
 		return;
 	}
+	// Also cover hosts that do not send a scale-change notification, including
+	// a pending InitialDelay that must not appear after zooming.
+	if (ReadScale() != m_Scale)
+	{
+		Hide();
+		return;
+	}
 	if (!IsWindow(m_SkinWindow) || !IsWindowVisible(m_SkinWindow) || IsIconic(m_SkinWindow))
 	{
 		Hide();
@@ -230,6 +237,11 @@ void ToolTipMeasure::UpdateOpen()
 {
 	if (!m_Visible)
 	{
+		return;
+	}
+	if (ReadScale() != m_Scale)
+	{
+		Hide();
 		return;
 	}
 	const auto oldIcon = m_Options.icon;

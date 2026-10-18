@@ -33,6 +33,8 @@ PLUGIN_EXPORT void HandleSkinSettingChange(void* data, void* rm, RmSkinSettingCh
 	if (setting == RmSkinSettingChange::Scale)
 	{
 		auto* measure = static_cast<ToolTipMeasure*>(data);
+		// Scaling can invalidate the skin's current hover target.
+		measure->Command(L"Hide");
 		measure->Reload(rm);
 	}
 }

@@ -154,9 +154,11 @@ by the Rainmeter API, including Windows display scaling and Rainmeter zoom exact
 The plugin exports HandleSkinSettingChange to declare DPI awareness to Rainmeter, preventing
 the host from pre-scaling W, H and FontSize before the plugin scales them for rendering.
 On older hosts without the effective-scale API, the plugin uses the skin window's Windows DPI.
-Open tooltips detect scale changes, resize their rendering buffers, and rerasterize icons without
-waiting for a measure update. `Show x y` coordinates are relative to the skin's upper-left
-corner in these same scaled pixels. They follow the skin when it moves or changes scale.
+A skin zoom or effective DPI-scale change dismisses open tooltips and cancels pending
+InitialDelay displays, regardless of FollowMouse, AutoPopDelay or DismissOnClick.
+A new Show command is required to open the tooltip again, using the new scale. `Show x y` coordinates are relative to the skin's upper-left
+corner in these same scaled pixels. They follow the skin when it moves; after a scale
+change, the next Show uses the new scale.
 
 | [SP]20[/SP]Option[SP]20[/SP] | [SP]10[/SP]Default[SP]10[/SP] | Meaning |
 | --- | --- | --- |
@@ -362,8 +364,8 @@ size coverage. Equal-size candidates prefer higher color depth. The selected ima
 is drawn at the requested size; it does not change the icon's layout dimensions.
 For example, IconW=42 at 275% zoom needs about 116 screen pixels, so a 125-pixel
 image is preferred over a 42-pixel image when available. Selection is repeated
-when the requested icon dimensions or effective skin scale change, including
-while the tooltip is open. ICO files remain raster images: enlarging beyond the
+when requested icon dimensions change while open. A scale change dismisses the
+tooltip; its next Show selects an image for the new scale. ICO files remain raster images: enlarging beyond the
 largest available image can still soften or pixelate the artwork. Unreadable
 frames are skipped; unreadable ICO files log a warning. ICO files are limited to
 16 MiB. SVGs continue to rasterize at the effective skin scale.
