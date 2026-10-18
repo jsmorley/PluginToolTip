@@ -355,6 +355,19 @@ IconY positions the icon independently; setting TextY does not move the icon.
 Automatic height includes positioned contents plus bottom padding and stroke clearance;
 all element Y coordinates exclude the balloon tail.
 These dimension options also resize standard and ICO icons.
+For ICO files containing multiple embedded images, the plugin selects the smallest
+image large enough for the requested icon dimensions after Rainmeter zoom and
+Windows DPI scaling. If none is large enough, it uses the image with the best
+size coverage. Equal-size candidates prefer higher color depth. The selected image
+is drawn at the requested size; it does not change the icon's layout dimensions.
+For example, IconW=42 at 275% zoom needs about 116 screen pixels, so a 125-pixel
+image is preferred over a 42-pixel image when available. Selection is repeated
+when the requested icon dimensions or effective skin scale change, including
+while the tooltip is open. ICO files remain raster images: enlarging beyond the
+largest available image can still soften or pixelate the artwork. Unreadable
+frames are skipped; unreadable ICO files log a warning. ICO files are limited to
+16 MiB. SVGs continue to rasterize at the effective skin scale.
+
 
 Set only `IconW` or only `IconH` to preserve the image's aspect ratio and
 calculate the missing dimension. For SVGs, the ratio uses the `viewBox`,

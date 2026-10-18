@@ -105,6 +105,91 @@ void ResolveIconSize(
 		width = std::clamp(height * ratio, 1.0f, 512.0f);
 	}
 }
+
+HICON LoadSizedIco(
+	const std::wstring& path, double requestedWidth, double requestedHeight, float scale)
+{
+	std::ifstream file(std::filesystem::path(path), std::ios::binary | std::ios::ate);
+	if (!file || file.tellg() < 6 || file.tellg() > 16 * 1024 * 1024)
+	{
+		return nullptr;
+	}
+	std::vector<BYTE> bytes(static_cast<size_t>(file.tellg()));
+	file.seekg(0);
+	if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
+	{
+		return nullptr;
+	}
+	auto word = [&](size_t offset) -> unsigned {
+		return bytes[offset] | (static_cast<unsigned>(bytes[offset + 1]) << 8);
+	};
+	auto dword = [&](size_t offset) -> DWORD {
+		return word(offset) | (static_cast<DWORD>(word(offset + 2)) << 16);
+	};
+	const unsigned count = word(4);
+	const size_t directoryEnd = 6 + static_cast<size_t>(count) * 16;
+	if (word(0) != 0 || word(2) != 1 || !count || directoryEnd > bytes.size())
+	{
+		return nullptr;
+	}
+	struct Frame
+	{
+		DWORD offset;
+		DWORD size;
+		unsigned depth;
+		unsigned area;
+		bool adequate;
+		float coverage;
+	};
+	std::vector<Frame> frames;
+	for (unsigned i = 0; i < count; ++i)
+	{
+		const size_t entry = 6 + static_cast<size_t>(i) * 16;
+		const unsigned width = bytes[entry] ? bytes[entry] : 256;
+		const unsigned height = bytes[entry + 1] ? bytes[entry + 1] : 256;
+		const DWORD size = dword(entry + 8), offset = dword(entry + 12);
+		if (!size || offset < directoryEnd || offset > bytes.size() || size > bytes.size() - offset)
+		{
+			continue;
+		}
+		float logicalWidth, logicalHeight;
+		ResolveIconSize(requestedWidth, requestedHeight, static_cast<float>(width) / height,
+			logicalWidth, logicalHeight);
+		const float targetWidth = std::ceil(logicalWidth * scale);
+		const float targetHeight = std::ceil(logicalHeight * scale);
+		frames.push_back({offset, size, word(entry + 6), width * height,
+			width >= targetWidth && height >= targetHeight,
+			std::min(width / targetWidth, height / targetHeight)});
+	}
+	std::stable_sort(frames.begin(), frames.end(), [](const Frame& a, const Frame& b) {
+		if (a.adequate != b.adequate)
+		{
+			return a.adequate;
+		}
+		if (a.adequate && a.area != b.area)
+		{
+			return a.area < b.area;
+		}
+		if (!a.adequate && a.coverage != b.coverage)
+		{
+			return a.coverage > b.coverage;
+		}
+		return a.depth > b.depth;
+	});
+	for (const auto& frame : frames)
+	{
+		// Keep the selected source at its native resolution. Direct2D performs
+		// the final resize once, rather than Windows resizing it first.
+		HICON icon = CreateIconFromResourceEx(
+			bytes.data() + frame.offset, frame.size, TRUE, 0x00030000, 0, 0, LR_DEFAULTCOLOR);
+		if (icon)
+		{
+			return icon;
+		}
+	}
+	return nullptr;
+}
+
 }
 
 void ToolTipMeasure::DestroyIconResource()
@@ -380,8 +465,7 @@ void ToolTipMeasure::ReadIcon()
 			return;
 		}
 		std::wstring path = RmPathToAbsolute(m_Rm, m_Options.icon.c_str());
-		m_Icon = static_cast<HICON>(
-			LoadImageW(nullptr, path.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE));
+		m_Icon = LoadSizedIco(path, m_RequestedIconWidth, m_RequestedIconHeight, m_Scale);
 		m_IconOwned = m_Icon != nullptr;
 		if (!m_Icon)
 		{
