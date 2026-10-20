@@ -499,6 +499,15 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			flags |= SWP_NOZORDER;
 		}
 		SetWindowPos(m_Window, topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, flags);
+		if (!m_Visible)
+		{
+			// A hidden popup can retain its topmost flag but an old position
+			// within that group. Raise each opening explicitly, including a
+			// non-topmost tip whose band did not need changing. Keep the skin's
+			// desktop position and the current application's keyboard focus.
+			SetWindowPos(m_Window, HWND_TOP, 0, 0, 0, 0,
+				SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+		}
 		KeepAboveSkin(m_Window, m_SkinWindow);
 	}
 	return ok;
