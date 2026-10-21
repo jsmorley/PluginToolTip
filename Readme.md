@@ -732,7 +732,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `Enabled` | `1` | 0 prevents Show and hides an open instance on its next update. |
 | `InitialDelay` | `0` | First display delay in milliseconds; default opens immediately. |
 | `ReshowDelay` | `100` | Delay when reopened within one second of its last hide. |
-| `AutoPopDelay` | `0` | Visible timeout in milliseconds; the default of 0 keeps it open until Hide or dismissal. |
+| `AutoPopDelay` | `0` | Visible timeout in milliseconds, measured from completion of the first successful draw, after InitialDelay or ReshowDelay. Rendering time does not consume the timeout. The default of 0 keeps it open until Hide or dismissal; content updates do not restart the timeout. |
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute, or a pair: Below \| Left, Below \| Right, Above \| Left, Above \| Right. Auto starts below and flips above near the monitor's bottom. Pairs select both vertical and horizontal placement relative to the anchor. |
 | `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in pixels. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |

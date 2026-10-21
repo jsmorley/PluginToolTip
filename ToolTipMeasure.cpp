@@ -206,8 +206,7 @@ void ToolTipMeasure::Tick()
 	}
 	m_LastLeft = left;
 	m_LastRight = right;
-	const auto now = GetTickCount64();
-	if (!m_Visible && now >= m_Due)
+	if (!m_Visible && GetTickCount64() >= m_Due)
 	{
 		Display();
 	}
@@ -215,6 +214,9 @@ void ToolTipMeasure::Tick()
 	{
 		return;
 	}
+	// Display records m_ShownAt after rendering. Sample time afterward so
+	// subtracting the start time cannot underflow on the opening timer tick.
+	const auto now = GetTickCount64();
 	KeepAboveSkin(m_Window, m_SkinWindow);
 	if (m_Options.autoPopDelay && now - m_ShownAt >= static_cast<ULONGLONG>(m_Options.autoPopDelay))
 	{
