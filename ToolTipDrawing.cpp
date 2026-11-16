@@ -36,6 +36,11 @@ bool ToolTipMeasure::DrawBalloon(
 	const float tipInset = m_Options.borderWidth / 2 + 0.5f / m_Scale;
 	float r =
 		std::min({m_Options.radius, (body.right - body.left) / 2, (body.bottom - body.top) / 2});
+	if (m_SideTail)
+	{
+		// Leave a straight segment to join the triangle on very short bodies.
+		r = std::min(r, std::max(0.0f, (body.bottom - body.top) / 2 - 0.5f / m_Scale));
+	}
 	float tx = std::clamp((m_Attachment.x - m_Origin.x) / m_Scale, body.left + r + 9,
 		std::max(body.left + r + 9, body.right - r - 9));
 	// A skin-relative or following-cursor tail stays anchored when the window is moved
@@ -59,16 +64,31 @@ bool ToolTipMeasure::DrawBalloon(
 	{
 		return false;
 	}
-	sink->BeginFigure(D2D1::Point2F(tx - 8, baseY), D2D1_FIGURE_BEGIN_FILLED);
-	if (m_TailTop)
+	if (m_SideTail)
 	{
-		sink->AddLine(D2D1::Point2F(tipX, tipY));
-		sink->AddLine(D2D1::Point2F(tx + 8, baseY));
+		const float half = std::clamp((body.bottom - body.top) / 2 - r, 0.0f, 8.0f);
+		const float clearance = std::min(r + half, (body.bottom - body.top) / 2);
+		const float anchor = (m_Attachment.y - m_Origin.y) / m_Scale;
+		const float center = std::clamp(anchor, body.top + clearance, body.bottom - clearance);
+		const float x = m_SideTail < 0 ? body.left : body.right;
+		const float point = m_SideTail < 0 ? tipInset : m_PixelSize.cx / m_Scale - tipInset;
+		sink->BeginFigure(D2D1::Point2F(x, center - half), D2D1_FIGURE_BEGIN_FILLED);
+		sink->AddLine(D2D1::Point2F(point, std::clamp(anchor, body.top, body.bottom)));
+		sink->AddLine(D2D1::Point2F(x, center + half));
 	}
 	else
 	{
-		sink->AddLine(D2D1::Point2F(tx + 8, baseY));
-		sink->AddLine(D2D1::Point2F(tipX, tipY));
+		sink->BeginFigure(D2D1::Point2F(tx - 8, baseY), D2D1_FIGURE_BEGIN_FILLED);
+		if (m_TailTop)
+		{
+			sink->AddLine(D2D1::Point2F(tipX, tipY));
+			sink->AddLine(D2D1::Point2F(tx + 8, baseY));
+		}
+		else
+		{
+			sink->AddLine(D2D1::Point2F(tx + 8, baseY));
+			sink->AddLine(D2D1::Point2F(tipX, tipY));
+		}
 	}
 	sink->EndFigure(D2D1_FIGURE_END_CLOSED);
 	HRESULT result = sink->Close();
@@ -115,6 +135,11 @@ bool ToolTipMeasure::DrawBalloon(
 	}
 	if (m_Options.borderWidth > 0)
 	{
+		if (m_SideTail)
+		{
+			DrawBorder(silhouette.Get(), body, stroke);
+			return true;
+		}
 		if (m_Options.strokeBevel != L"none" && m_Options.bevelWidth > 0 &&
 			m_Options.bevelRelief > 0)
 		{
@@ -277,16 +302,18 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			float radians = (m_Options.linearGradient ? m_Options.linearGradient->angle
 													  : m_Options.gradientAngle) *
 				3.14159265f / 180;
-			auto center = D2D1::Point2F(m_BodyWidth / 2, (m_BodyHeight + m_TailHeight) / 2);
-			float dx = std::cos(radians) * m_BodyWidth / 2,
-				  dy = std::sin(radians) * (m_BodyHeight + m_TailHeight) / 2;
+			const float gradientWidth = m_SideTail ? m_PixelSize.cx / m_Scale : m_BodyWidth;
+			const float gradientHeight = m_SideTail ? m_BodyHeight : m_BodyHeight + m_TailHeight;
+			auto center = D2D1::Point2F(gradientWidth / 2, gradientHeight / 2);
+			float dx = std::cos(radians) * gradientWidth / 2,
+				  dy = std::sin(radians) * gradientHeight / 2;
 			if (m_Options.linearGradient)
 			{
 				// Project the rectangle onto the gradient's actual direction,
 				// so the angle is preserved even on non-square tooltips.
 				const float extent =
-					(std::abs(std::cos(radians)) * m_BodyWidth +
-						std::abs(std::sin(radians)) * (m_BodyHeight + m_TailHeight)) /
+					(std::abs(std::cos(radians)) * gradientWidth +
+						std::abs(std::sin(radians)) * gradientHeight) /
 					2;
 				dx = -std::cos(radians) * extent;
 				dy = -std::sin(radians) * extent;
@@ -369,8 +396,9 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			source = m_OutlineIntermediate;
 		}
 	}
+	const float left = m_SideTail < 0 ? std::round(m_TailHeight * m_Scale) / m_Scale : 0;
 	m_Target->PushAxisAlignedClip(
-		D2D1::RectF(0, top, m_BodyWidth, top + m_BodyHeight), D2D1_ANTIALIAS_MODE_ALIASED);
+		D2D1::RectF(left, top, left + m_BodyWidth, top + m_BodyHeight), D2D1_ANTIALIAS_MODE_ALIASED);
 	if (m_Icon && ToolTip::GetGraphicsResources().wic)
 	{
 		ComPtr<IWICBitmap> iconWic;
@@ -385,7 +413,10 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			SUCCEEDED(
 				m_Target->CreateBitmapFromWicBitmap(converted.Get(), iconBitmap.GetAddressOf())))
 		{
-			m_Target->DrawBitmap(iconBitmap.Get(), GetIconRect(top));
+			auto icon = GetIconRect(top);
+			icon.left += left;
+			icon.right += left;
+			m_Target->DrawBitmap(iconBitmap.Get(), icon);
 		}
 	}
 	const float titleX = GetTitleX();
@@ -396,7 +427,7 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 			m_BodyWidth - m_Options.padding[2] - m_Options.borderWidth -
 				(m_Options.close && !m_Options.closeButtonX ? 24 : 0) - titleX);
 		Gfx::Canvas::Draw(m_Target.Get(), m_Options.title, *m_TitleFormat,
-			D2D1::RectF(titleX, titleY, titleX + titleWidth, titleY + m_TitleSize.height),
+			D2D1::RectF(left + titleX, titleY, left + titleX + titleWidth, titleY + m_TitleSize.height),
 			m_Options.titleColor, true, true);
 	}
 	if (m_Options.close)
@@ -413,7 +444,9 @@ bool ToolTipMeasure::Draw(BYTE opacity)
 				closeBrush.Get(), 1.5f);
 		}
 	}
-	const auto rect = GetTextRect(top);
+	auto rect = GetTextRect(top);
+	rect.left += left;
+	rect.right += left;
 	if (m_Options.effect == L"shadow" || m_Options.effect == L"border")
 	{
 		const int offsets[][2] = {{1, 1}, {-1, 0}, {1, 0}, {0, -1}, {0, 1}};

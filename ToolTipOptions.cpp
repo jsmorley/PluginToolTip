@@ -332,6 +332,7 @@ void Options::ReadBehaviorOptions()
 	always = flag(L"AlwaysTip", true);
 	follow = flag(L"FollowMouse", true);
 	keepOnScreen = flag(L"KeepOnScreen", true);
+	flipOnEdge = flag(L"FlipOnEdge", false);
 	dismissClick = flag(L"DismissOnClick", true);
 	antiAlias = flag(L"AntiAlias", true);
 	noFade = flag(L"NoFade", false);

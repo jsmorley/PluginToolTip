@@ -734,6 +734,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 | `ReshowDelay` | `100` | Delay when reopened within one second of its last hide. |
 | `AutoPopDelay` | `0` | Visible timeout in milliseconds, measured from completion of the first successful draw, after InitialDelay or ReshowDelay. Rendering time does not consume the timeout. The default of 0 keeps it open until Hide or dismissal; content updates do not restart the timeout. |
 | `Position` | `Auto` | Auto, Below, Above, Left, Right, Absolute, or a pair: Below \| Left, Below \| Right, Above \| Left, Above \| Right. Auto starts below and flips above near the monitor's bottom. Pairs select both vertical and horizontal placement relative to the anchor. |
+| `FlipOnEdge` | `0` | With `KeepOnScreen=1`, set to `1` to try the opposite side if the preferred placement does not fit in the monitor's work area. Pairs check the horizontal and vertical directions independently. Applies to rectangles and balloons. Ignored with `Position=Absolute` or `KeepOnScreen=0`. |
 | `OffsetX`, `OffsetY` | `0`, `2` for balloons / `20` for square tooltips | Offset from the anchor in pixels. Mouse-anchored balloons use the cursor's visible bottom edge when below, or top edge when above; the default leaves a small gap before the tail outline. Above/left use the absolute offset as the gap. Explicit offsets override these defaults. |
 | `KeepOnScreen` | `1` | Clamps the popup to the anchor monitor's work area, including monitors with negative coordinates. An oversized tooltip may still exceed the work area. |
 | `FollowMouse` | `1` | 1 follows the cursor while open; set 0 to leave it at its initial position. With KeepOnScreen=1, balloons using Auto, Above, or Below (including Above/Below Left/Right pairs) flip to the other side near the top/bottom of the screen, attempting to keep the tail pointed at the cursor. Explicit Show x y stays anchored to its skin-relative coordinates instead. |
@@ -745,7 +746,7 @@ logged and skipped. Up to 256 bindings and inline settings are supported per ins
 With Position=Absolute, Show x y gives the popup's top-left position relative to the skin,
 except for a balloon with FollowMouse=0, where it anchors the tail. With plain Show,
 OffsetX/OffsetY are the absolute top-left coordinates, scaled from pixels. Other positions
-treat Show x y as an anchor. Balloons point their tail toward the anchor vertically.
+treat Show x y as an anchor. Balloons normally point their tail toward the anchor vertically.
 For Auto/Below/Above balloon positioning, the body shifts left to align its tail
 with that anchor. Cursor bounds exclude transparent bitmap padding and account for
 the cursor hotspot. Explicit Show x y anchors use the supplied skin-relative point.
@@ -758,11 +759,23 @@ entire width on the selected side, with the absolute OffsetX as the horizontal g
 Balloons place the body on the selected side with their tail aligned to the anchor;
 the tail and rounded corner leave a small portion of the window across the anchor.
 For pairs, the absolute OffsetX moves the body farther toward the selected side.
-With mouse anchors, OffsetY/TailGap retain their usual vertical behavior. Explicit Above/Below pairs do
-not automatically flip, except for a balloon tail anchored by Show x y with FollowMouse=0
-or a mouse-following balloon with FollowMouse=1;
-KeepOnScreen can still clamp them to the monitor's work area.
+With mouse anchors, OffsetY/TailGap retain their usual vertical behavior.
 Invalid pairs log a warning and fall back to Auto.
+
+With `FlipOnEdge=1` and `KeepOnScreen=1`, the plugin tries the opposite side
+before clamping. For example, `Position=Above` and `OffsetY=30` place a rectangle
+30 pixels below its anchor if it does not fit above. If neither side fits, the
+preferred placement is clamped. Above/Below pairs check each axis independently.
+Standalone Left/Right use the absolute OffsetX as the gap and OffsetY as the
+vertical offset. Left/Right balloons have a side tail aimed at the anchor,
+with OffsetY moving the body vertically around it. TailGap applies to
+mouse-anchored vertical balloons. With FlipOnEdge=0, Auto and the existing
+anchored balloon cases retain their usual flipping behavior.
+
+When a tooltip was opened with plain `Show` and `FollowMouse=0`, moving the skin
+closes the tooltip (or cancels a pending show), even with `DismissOnClick=0`.
+A click without movement does not trigger this rule. A tooltip opened with
+`Show x y` keeps its skin-relative anchor when the skin moves.
 
 For a balloon just below and to the right of the cursor:
 

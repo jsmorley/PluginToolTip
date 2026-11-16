@@ -120,6 +120,8 @@ void ToolTipMeasure::Show(bool fixed, POINT point, D2D1_POINT_2F relative)
 		return;
 	}
 	m_FixedAnchor = fixed;
+	m_SkinOrigin = {};
+	ClientToScreen(m_SkinWindow, &m_SkinOrigin);
 	m_SkinAnchor = relative;
 	m_Anchor = fixed ? GetSkinAnchor(m_Scale) : point;
 	m_Requested = true;
@@ -161,6 +163,13 @@ void ToolTipMeasure::Display()
 	m_ShownAt = GetTickCount64();
 }
 
+bool ToolTipMeasure::ShouldDismissForSkinMove() const
+{
+	POINT origin{};
+	return !m_FixedAnchor && !m_Options.follow && ClientToScreen(m_SkinWindow, &origin) &&
+		(origin.x != m_SkinOrigin.x || origin.y != m_SkinOrigin.y);
+}
+
 void ToolTipMeasure::Tick()
 {
 	if (!m_Requested)
@@ -174,7 +183,8 @@ void ToolTipMeasure::Tick()
 		Hide();
 		return;
 	}
-	if (!IsWindow(m_SkinWindow) || !IsWindowVisible(m_SkinWindow) || IsIconic(m_SkinWindow))
+	if (!IsWindow(m_SkinWindow) || !IsWindowVisible(m_SkinWindow) || IsIconic(m_SkinWindow) ||
+		ShouldDismissForSkinMove())
 	{
 		Hide();
 		return;
@@ -261,7 +271,7 @@ void ToolTipMeasure::UpdateOpen()
 	const bool iconChanged = oldIcon != m_Options.icon || m_IconScale != m_Scale ||
 		m_RequestedIconWidth != m_Options.Number(L"IconW", 0) ||
 		m_RequestedIconHeight != m_Options.Number(L"IconH", 0);
-	if (!m_Options.enabled)
+	if (!m_Options.enabled || ShouldDismissForSkinMove())
 	{
 		Hide();
 		return;

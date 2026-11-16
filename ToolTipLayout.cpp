@@ -29,6 +29,17 @@ POINT ToolTipMeasure::GetSkinAnchor(float effectiveScale) const
 }
 
 namespace {
+bool FitsAxis(LONG start, LONG length, LONG minimum, LONG maximum)
+{
+	return start >= minimum && start + length <= maximum;
+}
+
+LONG PreferAxis(LONG preferred, LONG opposite, LONG length, LONG minimum, LONG maximum)
+{
+	return !FitsAxis(preferred, length, minimum, maximum) &&
+		FitsAxis(opposite, length, minimum, maximum) ? opposite : preferred;
+}
+
 float ResolveCoordinate(const std::optional<ToolTip::TextCoordinate>& value, float automatic,
 	float start, float length, bool reference)
 {
@@ -110,8 +121,9 @@ D2D1_RECT_F ToolTipMeasure::GetBodyRect(float top) const
 {
 	// Align outer stroke edges to physical pixels while preserving stroke width.
 	const float inset = m_Options.borderWidth / 2;
-	return D2D1::RectF(inset, std::round(top * m_Scale) / m_Scale + inset,
-		std::ceil(m_BodyWidth * m_Scale) / m_Scale - inset,
+	const float left = m_SideTail < 0 ? std::round(m_TailHeight * m_Scale) / m_Scale : 0;
+	return D2D1::RectF(left + inset, std::round(top * m_Scale) / m_Scale + inset,
+		std::ceil((left + m_BodyWidth) * m_Scale) / m_Scale - inset,
 		std::ceil((top + m_BodyHeight) * m_Scale) / m_Scale - inset);
 }
 
@@ -306,7 +318,10 @@ void ToolTipMeasure::UpdateLayout()
 
 POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 {
-	if (m_FixedAnchor && IsTailAnchored())
+	m_SideTail = 0;
+	const bool flip = m_Options.flipOnEdge && m_Options.keepOnScreen;
+	const bool side = m_Options.position == L"left" || m_Options.position == L"right";
+	if (m_FixedAnchor && IsTailAnchored() && !(flip && side))
 	{
 		return GetAnchoredBalloonPosition(size, m_Anchor, m_Anchor);
 	}
@@ -344,11 +359,15 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 		above.x += cursorX;
 		above.y += bounds.top;
 	}
+	if (flip && side && m_Options.balloon)
+	{
+		return GetSideBalloonPosition();
+	}
 	if (IsTailAnchored())
 	{
 		// Keep the requested cursor gap on either side. The placement helper flips
 		// the body before clamping and attaches the tail to the chosen cursor edge.
-		below.y += yOffset;
+		below.y += flip ? std::abs(yOffset) : yOffset;
 		above.y -= std::abs(yOffset);
 		return GetAnchoredBalloonPosition(size, below, above);
 	}
@@ -376,7 +395,27 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 	MONITORINFO monitor{sizeof(monitor)};
 	GetMonitorInfoW(MonitorFromPoint(m_Anchor, MONITOR_DEFAULTTONEAREST), &monitor);
 	auto work = monitor.rcWork;
-	if (m_Options.position == L"auto" && p.y + belowHeight > work.bottom)
+	if (flip && side)
+	{
+		const LONG left = m_Anchor.x - size.cx - std::abs(xOffset);
+		const LONG right = m_Anchor.x + std::abs(xOffset);
+		p.x = m_Options.position == L"left"
+			? PreferAxis(left, right, size.cx, work.left, work.right)
+			: PreferAxis(right, left, size.cx, work.left, work.right);
+		p.y += yOffset;
+	}
+	else if (flip && m_Options.position != L"absolute")
+	{
+		const LONG aboveY = above.y - aboveHeight - std::abs(yOffset);
+		const LONG belowY = below.y + std::abs(yOffset);
+		const bool preferAbove = m_Options.position == L"above";
+		const bool fitsAbove = FitsAxis(aboveY, aboveHeight, work.top, work.bottom);
+		const bool fitsBelow = FitsAxis(belowY, belowHeight, work.top, work.bottom);
+		const bool placeAbove = preferAbove ? fitsAbove || !fitsBelow : !fitsBelow && fitsAbove;
+		m_Attachment = placeAbove ? above : below;
+		p = {m_Attachment.x + xOffset, placeAbove ? aboveY : belowY};
+	}
+	else if (m_Options.position == L"auto" && p.y + belowHeight > work.bottom)
 	{
 		m_Attachment = above;
 		p = {above.x + xOffset, above.y - aboveHeight - std::abs(yOffset)};
@@ -411,8 +450,14 @@ POINT ToolTipMeasure::GetWindowPosition(SIZE size)
 	}
 	if (!verticalBalloon && !m_Options.horizontalPosition.empty())
 	{
-		p.x = m_Options.horizontalPosition == L"left" ? m_Anchor.x - size.cx - std::abs(xOffset)
-													  : m_Anchor.x + std::abs(xOffset);
+		const LONG left = m_Anchor.x - size.cx - std::abs(xOffset);
+		const LONG right = m_Anchor.x + std::abs(xOffset);
+		const bool preferLeft = m_Options.horizontalPosition == L"left";
+		p.x = preferLeft ? left : right;
+		if (flip)
+		{
+			p.x = PreferAxis(p.x, preferLeft ? right : left, size.cx, work.left, work.right);
+		}
 	}
 	if (m_Options.keepOnScreen)
 	{
@@ -452,7 +497,7 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 			{
 				placeAbove = !placeAbove;
 			}
-			else
+			else if (!m_Options.flipOnEdge || m_Options.position == L"absolute")
 			{
 				// An oversized tooltip or an off-screen anchor cannot fit exactly.
 				// Prefer the side with more space, then keep as much visible as possible.
@@ -470,13 +515,17 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 	const auto xOffset = static_cast<LONG>(m_Options.offsetX * m_Scale);
 	const POINT attachment = placeAbove ? aboveAnchor : belowAnchor;
 	POINT position{attachment.x - tailInset + xOffset, placeAbove ? above : below};
-	if (m_Options.horizontalPosition == L"left" || m_Options.position == L"left")
+	const bool preferLeft = m_Options.horizontalPosition == L"left" || m_Options.position == L"left";
+	const bool preferRight = m_Options.horizontalPosition == L"right" || m_Options.position == L"right";
+	if (preferLeft || preferRight)
 	{
-		position.x = attachment.x - size.cx + tailInset - std::abs(xOffset);
-	}
-	else if (m_Options.horizontalPosition == L"right" || m_Options.position == L"right")
-	{
-		position.x = attachment.x - tailInset + std::abs(xOffset);
+		const LONG left = attachment.x - size.cx + tailInset - std::abs(xOffset);
+		const LONG right = attachment.x - tailInset + std::abs(xOffset);
+		position.x = preferLeft ? left : right;
+		if (m_Options.flipOnEdge && m_Options.keepOnScreen)
+		{
+			position.x = PreferAxis(position.x, preferLeft ? right : left, size.cx, work.left, work.right);
+		}
 	}
 
 	// OffsetX shifts the body, not the anchor. Keep the point within the bitmap;
@@ -496,9 +545,41 @@ POINT ToolTipMeasure::GetAnchoredBalloonPosition(SIZE size, POINT belowAnchor, P
 	return position;
 }
 
+POINT ToolTipMeasure::GetSideBalloonPosition()
+{
+	MONITORINFO monitor{sizeof(monitor)};
+	GetMonitorInfoW(MonitorFromPoint(m_Anchor, MONITOR_DEFAULTTONEAREST), &monitor);
+	const RECT& work = monitor.rcWork;
+	const LONG bodyWidth = m_PixelSize.cx;
+	const LONG tailWidth = static_cast<LONG>(std::round(m_TailHeight * m_Scale));
+	m_TailTop = false;
+	m_BodyHeight = m_BottomTailBodyHeight;
+	m_PixelSize = {bodyWidth + tailWidth, static_cast<LONG>(std::ceil(m_BodyHeight * m_Scale))};
+	const LONG inset = static_cast<LONG>(std::round(m_Options.borderWidth * m_Scale / 2 + 0.5f));
+	const LONG gap = std::abs(static_cast<LONG>(m_Options.offsetX * m_Scale));
+	const LONG leftAnchor = m_Anchor.x + (m_FixedAnchor ? 0 : m_CursorEdges.bounds.left) - gap;
+	const LONG rightAnchor = m_Anchor.x + (m_FixedAnchor ? 0 : m_CursorEdges.bounds.right) + gap;
+	const LONG left = leftAnchor - m_PixelSize.cx + inset;
+	const LONG right = rightAnchor - inset;
+	bool placeLeft = m_Options.position == L"left";
+	if (!FitsAxis(placeLeft ? left : right, m_PixelSize.cx, work.left, work.right) &&
+		FitsAxis(placeLeft ? right : left, m_PixelSize.cx, work.left, work.right))
+	{
+		placeLeft = !placeLeft;
+	}
+	m_SideTail = placeLeft ? 1 : -1;
+	m_Attachment = {placeLeft ? leftAnchor : rightAnchor, m_Anchor.y};
+	const LONG yOffset = static_cast<LONG>(m_Options.offsetY * m_Scale);
+	const LONG y = m_Anchor.y - m_PixelSize.cy / 2 + yOffset;
+	return {
+		std::clamp(placeLeft ? left : right, work.left, std::max(work.left, work.right - m_PixelSize.cx)),
+		std::clamp(y, work.top, std::max(work.top, work.bottom - m_PixelSize.cy))};
+}
+
 D2D1_POINT_2F ToolTipMeasure::GetCloseButtonOrigin() const
 {
-	return D2D1::Point2F(m_Options.closeButtonX.value_or(
+	const float left = m_SideTail < 0 ? std::round(m_TailHeight * m_Scale) / m_Scale : 0;
+	return D2D1::Point2F(left + m_Options.closeButtonX.value_or(
 							 m_BodyWidth - m_Options.padding[2] - m_Options.borderWidth - 22),
 		(m_Options.closeButtonY ? *m_Options.closeButtonY + (m_TailTop ? m_TailHeight : 0)
 								: (m_TailTop ? m_TailHeight : 0) + m_Options.padding[1]));

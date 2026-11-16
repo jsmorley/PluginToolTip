@@ -97,6 +97,7 @@ struct Options
 	bool always = true;
 	bool follow = true;
 	bool keepOnScreen = true;
+	bool flipOnEdge = false;
 	bool antiAlias = true;
 	bool noFade = false;
 	bool dismissClick = true;

@@ -46,13 +46,15 @@ private:
 	void UpdateLayout();
 	POINT GetWindowPosition(SIZE size);
 	POINT GetAnchoredBalloonPosition(SIZE size, POINT below, POINT above);
+	POINT GetSideBalloonPosition();
+	bool ShouldDismissForSkinMove() const;
 	bool IsTailAnchored() const
 	{
-		return m_Options.balloon &&
-			((m_FixedAnchor && !m_Options.follow) ||
-				(!m_FixedAnchor && m_Options.follow &&
-					(m_Options.position == L"auto" || m_Options.position == L"above" ||
-						m_Options.position == L"below")));
+		const bool vertical = m_Options.position == L"auto" || m_Options.position == L"above" ||
+			m_Options.position == L"below";
+		return m_Options.balloon && ((m_FixedAnchor && !m_Options.follow) ||
+			(vertical && ((!m_FixedAnchor && m_Options.follow) ||
+				(m_Options.flipOnEdge && m_Options.keepOnScreen))));
 	}
 	void DrawBorder(ID2D1Geometry* outline, const D2D1_RECT_F& body, ID2D1Brush* flat);
 	D2D1_POINT_2F GetCloseButtonOrigin() const;
@@ -88,6 +90,7 @@ private:
 	bool m_Visible = false;
 	bool m_FixedAnchor = false;
 	bool m_TailTop = true;
+	int m_SideTail = 0; // -1: left edge, +1: right edge.
 	bool m_ComOwned = false;
 	bool m_LastLeft = false;
 	bool m_LastRight = false;
@@ -97,6 +100,7 @@ private:
 	POINT m_Anchor{};
 	POINT m_Origin{};
 	POINT m_Attachment{};
+	POINT m_SkinOrigin{};
 	D2D1_POINT_2F m_SkinAnchor{};
 	HCURSOR m_MeasuredCursor = nullptr;
 	ToolTip::CursorEdges m_CursorEdges;
